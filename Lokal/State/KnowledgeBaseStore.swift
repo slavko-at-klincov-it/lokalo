@@ -66,6 +66,12 @@ final class KnowledgeBaseStore {
         try? persist()
     }
 
+    /// Optional hook so the IndexingService can drop its cached
+    /// VectorStore / ChunkStore for a removed source. Wired in
+    /// `LokalApp.task` so this store doesn't need to know about
+    /// IndexingService directly.
+    var onSourceRemoved: ((UUID) -> Void)?
+
     func remove(source: KnowledgeSource) {
         for bi in bases.indices {
             bases[bi].sources.removeAll { $0.id == source.id }
@@ -76,6 +82,7 @@ final class KnowledgeBaseStore {
         try? FileManager.default.removeItem(at: idxURL)
         try? FileManager.default.removeItem(at: dbURL)
         try? persist()
+        onSourceRemoved?(source.id)
     }
 
     func removeBase(_ id: UUID) {
@@ -83,6 +90,7 @@ final class KnowledgeBaseStore {
         for src in kb.sources {
             try? FileManager.default.removeItem(at: Self.indexFileURL(for: src.id))
             try? FileManager.default.removeItem(at: Self.chunkDBFileURL(for: src.id))
+            onSourceRemoved?(src.id)
         }
         bases.removeAll { $0.id == id }
         if activeBaseID == id { activeBaseID = bases.first?.id }

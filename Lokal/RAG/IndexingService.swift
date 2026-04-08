@@ -31,6 +31,16 @@ final class IndexingService {
     private weak var connectionStore: ConnectionStore?
     private var task: Task<Void, Never>?
 
+    /// Per-source cache of loaded VectorStore + ChunkStore so that
+    /// `query()` doesn't reload the USearch index and reopen the SQLite
+    /// database from disk on every single call. Indexed by source ID.
+    /// Invalidated whenever a source is re-indexed or removed.
+    private struct LoadedStore {
+        let vectorStore: VectorStore
+        let chunkStore: ChunkStore
+    }
+    private var loadedStores: [UUID: LoadedStore] = [:]
+
     func attach(kbStore: KnowledgeBaseStore,
                 embeddingStore: EmbeddingModelStore,
                 connectionStore: ConnectionStore?) {
@@ -44,6 +54,19 @@ final class IndexingService {
         task = nil
     }
 
+    /// Drop the cached stores for a given source. Call after re-indexing,
+    /// removing, or otherwise mutating the on-disk state for that source.
+    func invalidateCache(for sourceID: UUID) {
+        loadedStores.removeValue(forKey: sourceID)
+    }
+
+    /// Drop every cached store. Call when an entire knowledge base is
+    /// removed or when the embedding model changes (different dimensions
+    /// invalidate every existing index).
+    func invalidateAllCaches() {
+        loadedStores.removeAll()
+    }
+
     /// Index a single source from scratch (drops any previous chunks for it).
     func indexSource(_ source: KnowledgeSource, in baseID: UUID) {
         guard let kbStore, let embeddingStore else { return }
@@ -53,6 +76,9 @@ final class IndexingService {
             return
         }
         cancel()
+        // Re-indexing invalidates the on-disk USearch index for this
+        // source, so any cached store is now stale.
+        invalidateCache(for: source.id)
         var working = source
         working.status = .indexing
         working.statusMessage = nil
@@ -219,6 +245,9 @@ final class IndexingService {
     }
 
     /// Run a query against an active KnowledgeBase and return the top-K hits.
+    /// Loads each source's USearch index + ChunkStore lazily and caches them
+    /// for the rest of the session, so subsequent queries (and chat tool-call
+    /// loops) hit memory instead of disk.
     func query(_ text: String, baseID: UUID, topK: Int = 5) async throws -> [RetrievalHit] {
         guard let kbStore = self.kbStore,
               let embeddingStore = self.embeddingStore,
@@ -235,13 +264,9 @@ final class IndexingService {
         var allHits: [RetrievalHit] = []
         for source in kb.sources where source.status == .ready {
             do {
-                let store = try await VectorStore(
-                    dimensions: entry.dimensions,
-                    storeURL: KnowledgeBaseStore.indexFileURL(for: source.id)
-                )
-                let raw = try await store.search(query: queryVec, topK: topK)
-                let chunkStore = try ChunkStore(url: KnowledgeBaseStore.chunkDBFileURL(for: source.id))
-                let chunks = try chunkStore.chunks(for: raw.map { $0.key })
+                let loaded = try await loadedStore(for: source, dimensions: entry.dimensions)
+                let raw = try await loaded.vectorStore.search(query: queryVec, topK: topK)
+                let chunks = try loaded.chunkStore.chunks(for: raw.map { $0.key })
                 let chunkByKey = Dictionary(uniqueKeysWithValues: chunks.map { ($0.key, $0) })
                 for hit in raw {
                     if let chunk = chunkByKey[hit.key] {
@@ -252,11 +277,33 @@ final class IndexingService {
                 #if DEBUG
                 print("Query error for source \(source.id): \(error.lokaloMessage)")
                 #endif
+                // If a cached store is broken, drop it so the next query
+                // tries to reload from disk instead of returning the same
+                // bad cache forever.
+                invalidateCache(for: source.id)
             }
         }
 
         // Sort by distance ascending (lower = closer in cosine).
         return allHits.sorted { $0.distance < $1.distance }.prefix(topK).map { $0 }
+    }
+
+    /// Get or build the cached `(VectorStore, ChunkStore)` pair for a source.
+    /// The actual disk loading happens off-actor via `Task.detached` so the
+    /// main actor doesn't block on USearch / SQLite I/O.
+    private func loadedStore(for source: KnowledgeSource, dimensions: Int) async throws -> LoadedStore {
+        if let cached = loadedStores[source.id] {
+            return cached
+        }
+        let indexURL = KnowledgeBaseStore.indexFileURL(for: source.id)
+        let chunkURL = KnowledgeBaseStore.chunkDBFileURL(for: source.id)
+        let loaded = try await Task.detached(priority: .userInitiated) { () -> LoadedStore in
+            let vectorStore = try await VectorStore(dimensions: dimensions, storeURL: indexURL)
+            let chunkStore  = try ChunkStore(url: chunkURL)
+            return LoadedStore(vectorStore: vectorStore, chunkStore: chunkStore)
+        }.value
+        loadedStores[source.id] = loaded
+        return loaded
     }
 
     // MARK: - Helpers

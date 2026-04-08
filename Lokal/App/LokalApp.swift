@@ -64,6 +64,13 @@ struct LokalApp: App {
                     embeddingStore: embeddingStore,
                     connectionStore: connectionStore
                 )
+                // Drop cached VectorStore/ChunkStore for any source the
+                // user removes, so the next query reloads a fresh copy.
+                kbStore.onSourceRemoved = { [weak indexingService] sourceID in
+                    Task { @MainActor in
+                        indexingService?.invalidateCache(for: sourceID)
+                    }
+                }
                 chatStore.attach(modelStore: modelStore)
                 chatStore.attach(
                     kbStore: kbStore,
