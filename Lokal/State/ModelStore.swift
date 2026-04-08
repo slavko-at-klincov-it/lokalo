@@ -10,10 +10,16 @@ import Observation
 @Observable
 final class ModelStore {
 
+    /// Safety headroom kept free on the volume so we don't fill the disk to
+    /// the brim. iOS starts complaining well before the volume is at 0 bytes.
+    static let safetyHeadroomBytes: Int64 = 500 * 1024 * 1024
+
     /// IDs of models that are fully downloaded and ready to load.
     private(set) var installedIDs: Set<String> = []
     /// Currently active model ID (the one ChatStore uses).
     var activeID: String?
+    /// Bytes free on the models volume; refreshed by `refreshDiskUsage()`.
+    private(set) var freeDiskBytes: Int64 = 0
 
     var hasInstalledModels: Bool { !installedIDs.isEmpty }
     var activeModel: ModelEntry? { activeID.flatMap { ModelCatalog.entry(id: $0) } }
@@ -24,7 +30,14 @@ final class ModelStore {
     var suggestedModels: [ModelEntry] {
         ModelCatalog.suggestedEntries().filter { !installedIDs.contains($0.id) }
     }
-    var allCatalogModels: [ModelEntry] { ModelCatalog.all }
+    var allCatalogModels: [ModelEntry] { ModelCatalog.phoneCompatible }
+
+    /// Sum of bytes occupied by every installed model file.
+    var totalInstalledBytes: Int64 {
+        installedIDs
+            .compactMap { ModelCatalog.entry(id: $0)?.sizeBytes }
+            .reduce(0, +)
+    }
 
     func bootstrap() async {
         let docs = Self.modelsDirectory()
@@ -49,6 +62,7 @@ final class ModelStore {
             activeID = first
             UserDefaults.standard.set(first, forKey: "Lokal.activeModelID")
         }
+        refreshDiskUsage()
     }
 
     func setActive(_ id: String) {
@@ -63,6 +77,7 @@ final class ModelStore {
             activeID = id
             UserDefaults.standard.set(id, forKey: "Lokal.activeModelID")
         }
+        refreshDiskUsage()
     }
 
     func remove(_ id: String) {
@@ -78,9 +93,58 @@ final class ModelStore {
                 UserDefaults.standard.removeObject(forKey: "Lokal.activeModelID")
             }
         }
+        refreshDiskUsage()
     }
 
     func isInstalled(_ id: String) -> Bool { installedIDs.contains(id) }
+
+    // MARK: - Disk usage / eviction planning
+
+    /// Re-read the volume's free-bytes value. Cheap; call after every
+    /// install/remove or before showing storage UI.
+    func refreshDiskUsage() {
+        freeDiskBytes = Self.queryFreeDiskBytes()
+    }
+
+    /// True if `entry` fits on disk right now without evicting anything.
+    func canFit(_ entry: ModelEntry) -> Bool {
+        freeDiskBytes >= entry.sizeBytes + Self.safetyHeadroomBytes
+    }
+
+    /// Models we'd suggest deleting to make room for `entry`. Largest first,
+    /// excluding the active model and `entry` itself. Returns the smallest
+    /// prefix of that list whose freed bytes (combined with current freeBytes)
+    /// satisfy `entry.sizeBytes + safetyHeadroom`.
+    func evictionCandidates(for entry: ModelEntry) -> [ModelEntry] {
+        let needed = entry.sizeBytes + Self.safetyHeadroomBytes - freeDiskBytes
+        guard needed > 0 else { return [] }
+        let pool = installedModels
+            .filter { $0.id != entry.id && $0.id != activeID }
+            .sorted { $0.sizeBytes > $1.sizeBytes }
+        var freed: Int64 = 0
+        var picked: [ModelEntry] = []
+        for candidate in pool {
+            picked.append(candidate)
+            freed += candidate.sizeBytes
+            if freed >= needed { break }
+        }
+        return picked
+    }
+
+    /// Sum of `sizeBytes` over the given entries.
+    func combinedSize(_ entries: [ModelEntry]) -> Int64 {
+        entries.reduce(0) { $0 + $1.sizeBytes }
+    }
+
+    private static func queryFreeDiskBytes() -> Int64 {
+        let url = modelsDirectory()
+        let keys: Set<URLResourceKey> = [.volumeAvailableCapacityForImportantUsageKey]
+        if let values = try? url.resourceValues(forKeys: keys),
+           let bytes = values.volumeAvailableCapacityForImportantUsage {
+            return Int64(bytes)
+        }
+        return 0
+    }
 
     // MARK: - Filesystem helpers
 

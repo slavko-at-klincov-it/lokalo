@@ -23,15 +23,12 @@ struct ChatView: View {
             messageList
                 .scrollDismissesKeyboard(.interactively)
                 .safeAreaInset(edge: .bottom) { composer }
-            if case .loading = chatStore.loadState {
-                loadingBanner
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
             if let banner = chatStore.statusBanner {
                 statusBanner(text: banner)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
+        .modelSwitchOverlay()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
@@ -91,7 +88,11 @@ struct ChatView: View {
             Text("Der aktuelle Verlauf wird verworfen.")
         }
         .task(id: modelStore.activeID) {
-            await chatStore.ensureEngineLoaded()
+            if let id = modelStore.activeID {
+                await chatStore.switchTo(modelID: id)
+            } else {
+                await chatStore.ensureEngineLoaded()
+            }
         }
         .onAppear {
             let args = ProcessInfo.processInfo.arguments
@@ -189,20 +190,6 @@ struct ChatView: View {
 
     private var sendEnabled: Bool {
         !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && chatStore.canSend
-    }
-
-    private var loadingBanner: some View {
-        HStack(spacing: 8) {
-            ProgressView().controlSize(.small)
-            Text("Modell wird geladen…")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(.regularMaterial)
-        .frame(maxWidth: .infinity)
     }
 
     private func statusBanner(text: String) -> some View {

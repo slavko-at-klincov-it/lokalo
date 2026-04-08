@@ -5,14 +5,63 @@
 
 import SwiftUI
 
+/// How rows in the catalog list are grouped into sections.
+enum ModelGrouping: String, CaseIterable, Identifiable {
+    case publisher
+    case sizeBucket
+    case none
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .publisher:  return "Anbieter"
+        case .sizeBucket: return "Größe"
+        case .none:       return "Keine"
+        }
+    }
+}
+
+/// How rows in the catalog list are sorted within their section.
+enum ModelSort: String, CaseIterable, Identifiable {
+    case nameAsc
+    case sizeAsc
+    case sizeDesc
+    case paramsAsc
+    case paramsDesc
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .nameAsc:    return "Name (A–Z)"
+        case .sizeAsc:    return "Größe ↑"
+        case .sizeDesc:   return "Größe ↓"
+        case .paramsAsc:  return "Parameter ↑"
+        case .paramsDesc: return "Parameter ↓"
+        }
+    }
+}
+
 struct LibraryView: View {
     @Environment(ModelStore.self) private var modelStore
     @Environment(DownloadManager.self) private var downloadManager
     @Binding var path: NavigationPath
     @State private var query: String = ""
+    @AppStorage("Lokal.libraryGrouping") private var groupingRaw = ModelGrouping.publisher.rawValue
+    @AppStorage("Lokal.librarySort") private var sortRaw = ModelSort.paramsAsc.rawValue
+    @State private var pendingDownload: ModelEntry?
+    @State private var pendingDelete: ModelEntry?
+
+    private var grouping: ModelGrouping {
+        ModelGrouping(rawValue: groupingRaw) ?? .publisher
+    }
+    private var sort: ModelSort {
+        ModelSort(rawValue: sortRaw) ?? .paramsAsc
+    }
 
     var body: some View {
         List {
+            diskSummarySection
+
             if !modelStore.installedModels.isEmpty {
                 Section("Geladen") {
                     ForEach(modelStore.installedModels) { entry in
@@ -30,9 +79,13 @@ struct LibraryView: View {
                 }
             }
 
-            Section(modelStore.installedModels.isEmpty ? "Vorschläge" : "Weitere Modelle") {
-                ForEach(filteredSuggestions) { entry in
-                    suggestedRow(entry)
+            ForEach(suggestionSections, id: \.title) { section in
+                Section {
+                    ForEach(section.items) { entry in
+                        suggestedRow(entry)
+                    }
+                } header: {
+                    sectionHeader(section)
                 }
             }
         }
@@ -40,10 +93,134 @@ struct LibraryView: View {
         .navigationTitle("Bibliothek")
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $query, prompt: "Modelle durchsuchen")
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Picker("Gruppieren", selection: $groupingRaw) {
+                        ForEach(ModelGrouping.allCases) { g in
+                            Text(g.label).tag(g.rawValue)
+                        }
+                    }
+                    Picker("Sortieren", selection: $sortRaw) {
+                        ForEach(ModelSort.allCases) { s in
+                            Text(s.label).tag(s.rawValue)
+                        }
+                    }
+                } label: {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                }
+            }
+        }
         .overlay {
-            if modelStore.installedModels.isEmpty && filteredSuggestions.isEmpty && activeDownloads.isEmpty {
+            if modelStore.installedModels.isEmpty
+                && suggestionSections.allSatisfy({ $0.items.isEmpty })
+                && activeDownloads.isEmpty {
                 emptyState
             }
+        }
+        .sheet(item: $pendingDownload) { entry in
+            DownloadConfirmSheet(entry: entry)
+        }
+        .confirmationDialog(
+            pendingDelete.map { "\($0.displayName) löschen?" } ?? "",
+            isPresented: Binding(
+                get: { pendingDelete != nil },
+                set: { if !$0 { pendingDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Endgültig löschen", role: .destructive) {
+                if let p = pendingDelete { modelStore.remove(p.id) }
+                pendingDelete = nil
+            }
+            Button("Abbrechen", role: .cancel) { pendingDelete = nil }
+        }
+        .task { modelStore.refreshDiskUsage() }
+    }
+
+    // MARK: - Sections
+
+    private var diskSummarySection: some View {
+        Section {
+            HStack {
+                Image(systemName: "internaldrive")
+                    .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Speicher")
+                        .font(.subheadline.weight(.semibold))
+                    Text("\(formatBytes(modelStore.freeDiskBytes)) frei · \(formatBytes(modelStore.totalInstalledBytes)) belegt")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private struct CatalogSection {
+        let title: String
+        let items: [ModelEntry]
+    }
+
+    private var filteredCatalog: [ModelEntry] {
+        let pool = modelStore.allCatalogModels.filter { !modelStore.installedIDs.contains($0.id) }
+        if query.isEmpty { return pool }
+        let q = query.lowercased()
+        return pool.filter {
+            $0.displayName.lowercased().contains(q)
+            || ($0.ollamaTag ?? "").lowercased().contains(q)
+            || $0.publisher.lowercased().contains(q)
+            || $0.summary.lowercased().contains(q)
+        }
+    }
+
+    private var suggestionSections: [CatalogSection] {
+        let sorted = filteredCatalog.sorted(by: sortComparator)
+        switch grouping {
+        case .none:
+            let title = modelStore.installedModels.isEmpty ? "Vorschläge" : "Weitere Modelle"
+            return [CatalogSection(title: title, items: sorted)]
+
+        case .publisher:
+            var byPublisher: [String: [ModelEntry]] = [:]
+            for entry in sorted {
+                byPublisher[entry.publisher, default: []].append(entry)
+            }
+            return byPublisher
+                .map { CatalogSection(title: $0.key, items: $0.value) }
+                .sorted { $0.title < $1.title }
+
+        case .sizeBucket:
+            var buckets: [(String, [ModelEntry])] = [
+                ("Bis 1 GB", []),
+                ("1–2 GB", []),
+                ("2–3 GB", []),
+                ("Über 3 GB", [])
+            ]
+            for entry in sorted {
+                let gb = entry.sizeGB
+                if gb < 1.0 {
+                    buckets[0].1.append(entry)
+                } else if gb < 2.0 {
+                    buckets[1].1.append(entry)
+                } else if gb < 3.0 {
+                    buckets[2].1.append(entry)
+                } else {
+                    buckets[3].1.append(entry)
+                }
+            }
+            return buckets
+                .filter { !$0.1.isEmpty }
+                .map { CatalogSection(title: $0.0, items: $0.1) }
+        }
+    }
+
+    private var sortComparator: (ModelEntry, ModelEntry) -> Bool {
+        switch sort {
+        case .nameAsc:    return { $0.displayName < $1.displayName }
+        case .sizeAsc:    return { $0.sizeBytes < $1.sizeBytes }
+        case .sizeDesc:   return { $0.sizeBytes > $1.sizeBytes }
+        case .paramsAsc:  return { $0.activeParametersBillion < $1.activeParametersBillion }
+        case .paramsDesc: return { $0.activeParametersBillion > $1.activeParametersBillion }
         }
     }
 
@@ -56,49 +233,65 @@ struct LibraryView: View {
             .sorted { $0.entry.displayName < $1.entry.displayName }
     }
 
-    private var filteredSuggestions: [ModelEntry] {
-        let pool = ModelCatalog.all.filter { !modelStore.installedIDs.contains($0.id) }
-        if query.isEmpty { return pool }
-        let q = query.lowercased()
-        return pool.filter {
-            $0.displayName.lowercased().contains(q)
-            || ($0.ollamaTag ?? "").lowercased().contains(q)
-            || $0.publisher.lowercased().contains(q)
-            || $0.summary.lowercased().contains(q)
+    private func sectionHeader(_ section: CatalogSection) -> some View {
+        let totalGB = Double(section.items.reduce(0) { $0 + $1.sizeBytes }) / 1_073_741_824.0
+        return HStack {
+            Text(section.title)
+            Spacer()
+            Text("\(section.items.count) · \(String(format: "%.1f GB", totalGB))")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
+    // MARK: - Rows
+
     private func installedRow(_ entry: ModelEntry) -> some View {
-        Button {
-            path.append(Route.modelDetail(entry.id))
-        } label: {
-            HStack(spacing: 12) {
-                publisherIcon(entry.publisher)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.displayName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    HStack(spacing: 6) {
-                        Text(entry.parametersLabel)
-                        Text("·")
-                        Text(entry.quantization)
-                        Text("·")
-                        Text(String(format: "%.1f GB", entry.sizeGB))
+        HStack(spacing: 10) {
+            Button {
+                path.append(Route.modelDetail(entry.id))
+            } label: {
+                HStack(spacing: 12) {
+                    publisherIcon(entry.publisher)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.displayName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        HStack(spacing: 6) {
+                            Text(entry.parametersLabel)
+                            Text("·")
+                            Text(entry.quantization)
+                            Text("·")
+                            Text(String(format: "%.1f GB", entry.sizeGB))
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Spacer()
+                    localBadge
+                    if modelStore.activeID == entry.id {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(Color.accentColor)
+                    }
                 }
-                Spacer()
-                if modelStore.activeID == entry.id {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color.accentColor)
-                }
+                .contentShape(Rectangle())
             }
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+
+            Button {
+                if modelStore.activeID == entry.id { return }
+                pendingDelete = entry
+            } label: {
+                Image(systemName: "trash")
+                    .foregroundStyle(modelStore.activeID == entry.id ? .gray : .red)
+            }
+            .buttonStyle(.plain)
+            .disabled(modelStore.activeID == entry.id)
+            .accessibilityLabel("Modell löschen")
         }
         .swipeActions(edge: .trailing) {
             Button(role: .destructive) {
-                modelStore.remove(entry.id)
+                pendingDelete = entry
             } label: {
                 Label("Löschen", systemImage: "trash")
             }
@@ -142,7 +335,7 @@ struct LibraryView: View {
 
     private func suggestedRow(_ entry: ModelEntry) -> some View {
         Button {
-            path.append(Route.modelDetail(entry.id))
+            pendingDownload = entry
         } label: {
             HStack(spacing: 12) {
                 publisherIcon(entry.publisher)
@@ -155,7 +348,7 @@ struct LibraryView: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                     HStack(spacing: 6) {
-                        Text(entry.parametersLabel)
+                        Text(entry.effectiveParametersLabel)
                         Text("·")
                         Text(String(format: "%.1f GB", entry.sizeGB))
                     }
@@ -163,12 +356,21 @@ struct LibraryView: View {
                     .foregroundStyle(.tertiary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.tertiary)
+                Image(systemName: "arrow.down.circle")
+                    .font(.title3)
+                    .foregroundStyle(Color.accentColor)
             }
             .contentShape(Rectangle())
         }
+    }
+
+    private var localBadge: some View {
+        Text("Lokal")
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Capsule().fill(Color.accentColor.opacity(0.18)))
+            .foregroundStyle(Color.accentColor)
     }
 
     private var emptyState: some View {

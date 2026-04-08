@@ -13,10 +13,12 @@
 		11B373378D6DBB249CEC31C3 /* WebAuthenticator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F3CDDA22321487AD879D447 /* WebAuthenticator.swift */; };
 		1324C5E3ADC33FF0425EFA57 /* ModelDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DA9DBB3778A7C4F2CD97628 /* ModelDetailView.swift */; };
 		13303803B2ECCA011DA0A5E3 /* OAuthTokenVault.swift in Sources */ = {isa = PBXBuildFile; fileRef = 060B120B87BC77565BF326EA /* OAuthTokenVault.swift */; };
+		209DBCAAEC7AC3B0B202F34F /* ModelSwitchOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E18F8B7D3BD399B93F5796B /* ModelSwitchOverlay.swift */; };
 		21D4735C90E1CF1E706DB704 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A3A0AD7E65BF899CC685E2E1 /* Assets.xcassets */; };
 		248C83212AEAB5CAA0B6AD0C /* ChatTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96C5EA71ECB9F18CE8B27D51 /* ChatTemplate.swift */; };
 		2F1FB7B6710711EF91932A75 /* KnowledgeBaseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E5C0E4F8BBAB0D1E7BECAAF /* KnowledgeBaseStore.swift */; };
 		31257027A53A583EE159EB5D /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F24C662B2C5A20A6402C1184 /* AboutView.swift */; };
+		3D547C3E4E72D797571F20DC /* DownloadConfirmSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8C5404C814C06578433A9FC /* DownloadConfirmSheet.swift */; };
 		3F586939FFC96FB97BBFD0B0 /* DownloadManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE4FBA9E4466E75892E9759E /* DownloadManagerTests.swift */; };
 		476FACD14C04A7EBDB7FE5EB /* LokalUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F360DC4F7A44DAB375FFA43C /* LokalUITests.swift */; };
 		49CE1E9B56EB4C118A044C4A /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFAA7A518B5E64312A4A1768 /* SettingsSheet.swift */; };
@@ -146,10 +148,12 @@
 		96C5EA71ECB9F18CE8B27D51 /* ChatTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatTemplate.swift; sourceTree = "<group>"; };
 		97CE37939AEA649153B4B965 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		9AE8A9E933DA43A200CA1F85 /* Chunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chunker.swift; sourceTree = "<group>"; };
+		9E18F8B7D3BD399B93F5796B /* ModelSwitchOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelSwitchOverlay.swift; sourceTree = "<group>"; };
 		A3A0AD7E65BF899CC685E2E1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AB8448B535222318CAD778D7 /* ModelEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelEntry.swift; sourceTree = "<group>"; };
 		AF3CEAC7CEB69CFC6DF6B3B1 /* V4_Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V4_Tokens.swift; sourceTree = "<group>"; };
 		B5415EF58A37CFA08013E41C /* Lokal.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Lokal.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B8C5404C814C06578433A9FC /* DownloadConfirmSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadConfirmSheet.swift; sourceTree = "<group>"; };
 		BA95DAD5902062C863199CAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		BA9E5582FFBD6F2A8F448FB6 /* V5_Lichtschalter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V5_Lichtschalter.swift; sourceTree = "<group>"; };
 		BF46CCA3A3C641B139A60DF2 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
@@ -215,9 +219,11 @@
 		24399FB8A2D41C0FA3D3C7F6 /* Library */ = {
 			isa = PBXGroup;
 			children = (
+				B8C5404C814C06578433A9FC /* DownloadConfirmSheet.swift */,
 				2F70492DF72EE0983EB328CF /* LibraryView.swift */,
 				0DA9DBB3778A7C4F2CD97628 /* ModelDetailView.swift */,
 				20E4454CAAF7F410F2290C50 /* ModelPickerSheet.swift */,
+				9E18F8B7D3BD399B93F5796B /* ModelSwitchOverlay.swift */,
 			);
 			path = Library;
 			sourceTree = "<group>";
@@ -568,6 +574,7 @@
 				C8D5D31B148E9A6EF5A1A7D9 /* ConnectionStore.swift in Sources */,
 				0695BA95228327ED6B9CF4F2 /* ConnectionsSettingsView.swift in Sources */,
 				D579FFA4628FC000C0980955 /* DocumentExtractor.swift in Sources */,
+				3D547C3E4E72D797571F20DC /* DownloadConfirmSheet.swift in Sources */,
 				D26EB2054BF0A96959A2131E /* DownloadManager.swift in Sources */,
 				730076DA9433F7E92F3F36A1 /* EmbeddingDownloader.swift in Sources */,
 				D3480EE31BADF43F9304F6F0 /* EmbeddingModel.swift in Sources */,
@@ -595,6 +602,7 @@
 				B23B6AE10A01B941536AA772 /* ModelEntry.swift in Sources */,
 				564C890859C180765AB847B4 /* ModelPickerSheet.swift in Sources */,
 				D00ECA0FBABBFBB75C20C0F4 /* ModelStore.swift in Sources */,
+				209DBCAAEC7AC3B0B202F34F /* ModelSwitchOverlay.swift in Sources */,
 				13303803B2ECCA011DA0A5E3 /* OAuthTokenVault.swift in Sources */,
 				FF0D2E235B7975ED60826A33 /* OneDriveOAuth.swift in Sources */,
 				7CBBBB01895A31D059B090B5 /* PKCE.swift in Sources */,

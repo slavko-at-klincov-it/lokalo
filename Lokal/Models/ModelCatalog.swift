@@ -245,6 +245,20 @@ enum ModelCatalog {
         )
     ]
 
+    /// Effective-parameter cutoff for phone-class catalog entries. Models above
+    /// this number (in billions) are filtered out of every user-facing list.
+    /// "Effective" means the active params per token, so MoE models are
+    /// measured by what they actually compute, not by their total weight count.
+    static let maxEffectiveBillion: Double = 7.0
+
+    /// All catalog entries that satisfy two hard rules:
+    ///   1. they run fully on-device (`isLocalCapable`),
+    ///   2. their effective active params are at most `maxEffectiveBillion`.
+    /// Every UI list that shows downloadable models must funnel through here.
+    static var phoneCompatible: [ModelEntry] {
+        all.filter { $0.isLocalCapable && $0.activeParametersBillion <= maxEffectiveBillion }
+    }
+
     static func entry(id: String) -> ModelEntry? {
         all.first { $0.id == id }
     }
@@ -260,6 +274,7 @@ enum ModelCatalog {
     ]
 
     static func suggestedEntries() -> [ModelEntry] {
-        suggested.compactMap { entry(id: $0) }
+        let phoneIDs = Set(phoneCompatible.map(\.id))
+        return suggested.compactMap { entry(id: $0) }.filter { phoneIDs.contains($0.id) }
     }
 }

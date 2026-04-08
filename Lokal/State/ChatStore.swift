@@ -12,7 +12,10 @@ final class ChatStore {
 
     enum LoadState: Equatable {
         case idle
-        case loading(modelID: String)
+        /// Old engine is being torn down before a new one is loaded.
+        case unloading(previousID: String)
+        /// New engine is being loaded; `progress` is in 0…1 from llama.cpp.
+        case loading(modelID: String, progress: Double)
         case ready(modelID: String)
         case error(String)
     }
@@ -73,35 +76,116 @@ final class ChatStore {
     }
 
     var loadingModelID: String? {
-        if case .loading(let id) = loadState { return id }
+        if case .loading(let id, _) = loadState { return id }
         return nil
     }
 
+    var loadProgress: Double {
+        if case .loading(_, let p) = loadState { return p }
+        return 0
+    }
+
+    var isSwitchingModel: Bool {
+        switch loadState {
+        case .unloading, .loading: return true
+        default: return false
+        }
+    }
+
+    /// Backwards-compatible shim used by call sites that just want "make sure
+    /// the active model is loaded". Internally delegates to `switchTo`.
     func ensureEngineLoaded() async {
         guard let modelStore, let active = modelStore.activeModel else {
-            engine = nil
+            await tearDownEngine()
             loadState = .idle
             return
         }
-        if case .ready(let id) = loadState, id == active.id { return }
-        if case .loading(let id) = loadState, id == active.id { return }
+        await switchTo(modelID: active.id)
+    }
 
-        loadState = .loading(modelID: active.id)
-        engine = nil
+    /// Unload the current engine (if any) and load `modelID`. Drives the
+    /// `loadState` machine through `.unloading → .loading(progress) → .ready`.
+    /// Safe to call from `.task(id:)` — re-entry on the same model is a no-op.
+    func switchTo(modelID: String) async {
+        guard let modelStore else { return }
+        guard let target = ModelCatalog.entry(id: modelID),
+              modelStore.isInstalled(modelID) else {
+            await tearDownEngine()
+            loadState = .idle
+            return
+        }
+
+        // Already loaded → nothing to do.
+        if case .ready(let id) = loadState, id == target.id { return }
+        // Already loading the same model → nothing to do.
+        if case .loading(let id, _) = loadState, id == target.id { return }
+
+        // Cancel any in-flight generation, then tear down the previous engine.
+        cancelStreaming()
+        if engine != nil {
+            // Determine "previous id" for the unload UI label.
+            let previousID: String
+            switch loadState {
+            case .ready(let id), .loading(let id, _): previousID = id
+            default: previousID = ""
+            }
+            loadState = .unloading(previousID: previousID)
+            await tearDownEngine()
+        }
+
+        loadState = .loading(modelID: target.id, progress: 0)
+
         do {
-            // Load on a background queue to keep UI responsive.
-            let path = ModelStore.fileURL(for: active).path
+            let path = ModelStore.fileURL(for: target).path
             var settings = self.settings
-            settings.contextTokens = Int32(active.recommendedContextTokens)
-            let engine = try await Task.detached(priority: .userInitiated) { () throws -> LlamaEngine in
-                try LlamaEngine.load(path: path, settings: settings)
+            settings.contextTokens = Int32(target.recommendedContextTokens)
+            let targetID = target.id
+
+            // Progress updates hop back to the main actor. Debounced to ~1 %
+            // increments to keep the UI smooth without flooding the runloop.
+            let progressHandler: @Sendable (Double) -> Void = { p in
+                Task { @MainActor [weak self] in
+                    self?.handleLoadProgress(p, modelID: targetID)
+                }
+            }
+
+            let engine = try await Task.detached(priority: .userInitiated) {
+                try LlamaEngine.load(path: path, settings: settings, progress: progressHandler)
             }.value
+
+            // Make sure the final 1.0 frame is rendered even if the callback
+            // never reached exactly 1.0 due to debouncing.
+            self.loadState = .loading(modelID: target.id, progress: 1.0)
             self.engine = engine
             await engine.updateSettings(settings)
-            self.loadState = .ready(modelID: active.id)
+            self.loadState = .ready(modelID: target.id)
         } catch {
+            self.engine = nil
             self.loadState = .error(error.localizedDescription)
         }
+    }
+
+    /// Tear down the current engine actor, waiting for `shutdown()` to finish.
+    private func tearDownEngine() async {
+        guard let engine else { return }
+        await engine.cancel()
+        await engine.shutdown()
+        self.engine = nil
+    }
+
+    /// Apply a new progress reading from the loader thread, debounced.
+    private func handleLoadProgress(_ value: Double, modelID: String) {
+        guard case .loading(let currentID, let current) = loadState,
+              currentID == modelID else { return }
+        let clamped = max(0, min(1, value))
+        // Only step forward; suppress jitter back from the callback.
+        guard clamped >= current + 0.01 || clamped >= 0.999 else { return }
+        loadState = .loading(modelID: modelID, progress: clamped)
+    }
+
+    /// Dismiss a sticky `.error` so the overlay closes.
+    func clearLoadError() {
+        if case .error = loadState { loadState = .idle }
     }
 
     func clearConversation() {

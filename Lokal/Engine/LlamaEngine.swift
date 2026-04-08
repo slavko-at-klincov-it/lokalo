@@ -44,10 +44,10 @@ actor LlamaEngine {
 
     // MARK: - State
 
-    private let modelPtr: OpaquePointer
-    private let contextPtr: OpaquePointer
+    private var modelPtr: OpaquePointer?
+    private var contextPtr: OpaquePointer?
     private let vocabPtr: OpaquePointer
-    private var sampling: UnsafeMutablePointer<llama_sampler>
+    private var sampling: UnsafeMutablePointer<llama_sampler>?
     private var batch: llama_batch
     private var nPast: Int32 = 0
     private(set) var settings: GenerationSettings
@@ -55,6 +55,7 @@ actor LlamaEngine {
     /// Strings that should terminate generation if they appear at the end of the buffer.
     private var stopStrings: [String] = []
     private var cancelRequested: Bool = false
+    private var didShutdown: Bool = false
 
     // MARK: - Lifecycle
 
@@ -68,10 +69,36 @@ actor LlamaEngine {
     }
 
     deinit {
-        llama_sampler_free(sampling)
+        // Belt-and-suspenders cleanup. The owning store should call shutdown()
+        // explicitly so the unload UI can wait on it; this is the safety net.
+        if !didShutdown {
+            if let s = sampling { llama_sampler_free(s) }
+            llama_batch_free(batch)
+            if let c = contextPtr { llama_free(c) }
+            if let m = modelPtr { llama_model_free(m) }
+        }
+    }
+
+    /// Tear down all llama.cpp resources synchronously inside the actor's queue.
+    /// After this returns, the engine is unusable; further `generate` calls
+    /// throw `.modelLoadFailed`. Idempotent.
+    func shutdown() {
+        guard !didShutdown else { return }
+        didShutdown = true
+        if let s = sampling {
+            llama_sampler_free(s)
+            sampling = nil
+        }
         llama_batch_free(batch)
-        llama_free(contextPtr)
-        llama_model_free(modelPtr)
+        batch = llama_batch()
+        if let c = contextPtr {
+            llama_free(c)
+            contextPtr = nil
+        }
+        if let m = modelPtr {
+            llama_model_free(m)
+            modelPtr = nil
+        }
     }
 
     /// One-time initialization of the llama.cpp backend. Both `LlamaEngine`
@@ -82,7 +109,13 @@ actor LlamaEngine {
     }
 
     /// Load a GGUF model from disk.
-    static func load(path: String, settings: GenerationSettings = .default) throws -> LlamaEngine {
+    ///
+    /// `progress` is invoked from the loader thread with values in `0...1`.
+    /// The closure must be `@Sendable` because it can be called from any thread.
+    /// Loading is synchronous; call this from a background `Task.detached`.
+    static func load(path: String,
+                     settings: GenerationSettings = .default,
+                     progress: (@Sendable (Double) -> Void)? = nil) throws -> LlamaEngine {
         backendInit()
 
         var modelParams = llama_model_default_params()
@@ -93,9 +126,34 @@ actor LlamaEngine {
         // (Some llama.cpp builds use INT32_MAX or 999; default is fine.)
         #endif
 
+        // Wire up llama.cpp's progress callback. We pass an Unmanaged box that
+        // owns the closure; the C callback retrieves it from user_data and
+        // forwards the float. The box is released right after the load returns.
+        var progressBox: Unmanaged<ProgressBox>?
+        if let progress {
+            let box = ProgressBox(callback: progress)
+            let unmanaged = Unmanaged.passRetained(box)
+            progressBox = unmanaged
+            modelParams.progress_callback = { value, userData in
+                guard let userData else { return true }
+                let box = Unmanaged<ProgressBox>.fromOpaque(userData).takeUnretainedValue()
+                box.callback(Double(value))
+                return true
+            }
+            modelParams.progress_callback_user_data = unmanaged.toOpaque()
+        }
+
+        defer {
+            if let box = progressBox { box.release() }
+        }
+
         guard let model = llama_model_load_from_file(path, modelParams) else {
             throw LlamaError.modelLoadFailed(path)
         }
+
+        // Notify "100% loaded weights, now initializing context" — the context
+        // init below is fast but visible to the user as a brief stall.
+        progress?(1.0)
 
         var ctxParams = llama_context_default_params()
         ctxParams.n_ctx = UInt32(settings.contextTokens)
@@ -132,10 +190,12 @@ actor LlamaEngine {
     }
 
     func updateSettings(_ newSettings: GenerationSettings) {
+        guard !didShutdown else { return }
         self.settings = newSettings
-        let oldSampler = sampling
+        if let oldSampler = sampling {
+            llama_sampler_free(oldSampler)
+        }
         sampling = LlamaEngine.makeSampler(settings: newSettings)
-        llama_sampler_free(oldSampler)
     }
 
     // MARK: - Tokenization helpers
@@ -181,6 +241,7 @@ actor LlamaEngine {
     // MARK: - KV cache control
 
     func reset() {
+        guard let contextPtr else { return }
         llama_memory_clear(llama_get_memory(contextPtr), true)
         nPast = 0
     }
@@ -198,6 +259,15 @@ actor LlamaEngine {
         AsyncThrowingStream { continuation in
             Task {
                 do {
+                    if didShutdown {
+                        continuation.finish(throwing: LlamaError.modelLoadFailed("engine shut down"))
+                        return
+                    }
+                    guard let contextPtr = self.contextPtr,
+                          let sampling = self.sampling else {
+                        continuation.finish(throwing: LlamaError.contextInitFailed)
+                        return
+                    }
                     if isGenerating {
                         continuation.finish(throwing: LlamaError.alreadyGenerating)
                         return
@@ -310,6 +380,17 @@ actor LlamaEngine {
             }
         }
         return nil
+    }
+}
+
+// MARK: - Progress callback box
+
+/// Reference-typed wrapper around the load-progress closure so we can shuttle
+/// it through `llama_progress_callback_user_data` (a `void *`).
+private final class ProgressBox: @unchecked Sendable {
+    let callback: @Sendable (Double) -> Void
+    init(callback: @escaping @Sendable (Double) -> Void) {
+        self.callback = callback
     }
 }
 
