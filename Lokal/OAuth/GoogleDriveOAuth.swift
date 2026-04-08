@@ -10,6 +10,16 @@
 
 import Foundation
 
+enum GoogleDriveError: LocalizedError {
+    case invalidURL
+    var errorDescription: String? {
+        switch self {
+        case .invalidURL:
+            return "Konnte Google-Drive-URL nicht erzeugen."
+        }
+    }
+}
+
 enum GoogleDriveOAuth {
 
     static var clientID: String {
@@ -132,7 +142,9 @@ enum GoogleDriveOAuth {
         var allFiles: [DriveFile] = []
         var pageToken: String? = nil
         repeat {
-            var c = URLComponents(string: "https://www.googleapis.com/drive/v3/files")!
+            guard var c = URLComponents(string: "https://www.googleapis.com/drive/v3/files") else {
+                throw GoogleDriveError.invalidURL
+            }
             var items: [URLQueryItem] = [
                 .init(name: "fields", value: "files(id,name,mimeType,size,parents),nextPageToken"),
                 .init(name: "pageSize", value: "100")
@@ -146,7 +158,8 @@ enum GoogleDriveOAuth {
                 items.append(.init(name: "pageToken", value: pt))
             }
             c.queryItems = items
-            var request = URLRequest(url: c.url!)
+            guard let url = c.url else { throw GoogleDriveError.invalidURL }
+            var request = URLRequest(url: url)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             let (data, _) = try await URLSession.shared.data(for: request)
             let resp = try JSONDecoder().decode(ListResponse.self, from: data)
@@ -160,16 +173,22 @@ enum GoogleDriveOAuth {
         // Native Google Docs need /export
         if mimeType.hasPrefix("application/vnd.google-apps.") {
             let exportType = mimeType == "application/vnd.google-apps.spreadsheet" ? "text/csv" : "text/plain"
-            var c = URLComponents(string: "https://www.googleapis.com/drive/v3/files/\(fileID)/export")!
+            guard var c = URLComponents(string: "https://www.googleapis.com/drive/v3/files/\(fileID)/export") else {
+                throw GoogleDriveError.invalidURL
+            }
             c.queryItems = [.init(name: "mimeType", value: exportType)]
-            var request = URLRequest(url: c.url!)
+            guard let url = c.url else { throw GoogleDriveError.invalidURL }
+            var request = URLRequest(url: url)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             let (data, _) = try await URLSession.shared.data(for: request)
             return data
         } else {
-            var c = URLComponents(string: "https://www.googleapis.com/drive/v3/files/\(fileID)")!
+            guard var c = URLComponents(string: "https://www.googleapis.com/drive/v3/files/\(fileID)") else {
+                throw GoogleDriveError.invalidURL
+            }
             c.queryItems = [.init(name: "alt", value: "media")]
-            var request = URLRequest(url: c.url!)
+            guard let url = c.url else { throw GoogleDriveError.invalidURL }
+            var request = URLRequest(url: url)
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
             let (data, _) = try await URLSession.shared.data(for: request)
             return data

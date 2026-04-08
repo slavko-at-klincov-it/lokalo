@@ -16,14 +16,17 @@ enum LlamaError: LocalizedError {
     case decodeFailed(Int32)
     case tokenizationFailed
     case alreadyGenerating
+    case contextTooSmall(nCtx: Int32, maxNewTokens: Int)
 
     var errorDescription: String? {
         switch self {
-        case .modelLoadFailed(let path): return "Failed to load model at \(path)"
-        case .contextInitFailed:         return "Failed to initialize llama context"
-        case .decodeFailed(let r):       return "llama_decode failed with code \(r)"
-        case .tokenizationFailed:        return "Failed to tokenize input"
-        case .alreadyGenerating:         return "Engine is already generating"
+        case .modelLoadFailed(let path):       return "Failed to load model at \(path)"
+        case .contextInitFailed:               return "Failed to initialize llama context"
+        case .decodeFailed(let r):             return "llama_decode failed with code \(r)"
+        case .tokenizationFailed:              return "Failed to tokenize input"
+        case .alreadyGenerating:               return "Engine is already generating"
+        case .contextTooSmall(let n, let m):
+            return "Context window (\(n) tokens) is too small for the requested maxNewTokens (\(m))."
         }
     }
 }
@@ -289,8 +292,16 @@ actor LlamaEngine {
                         return
                     }
 
+                    // Reserve at least one token of headroom for generation.
+                    // If the user picked a context smaller than the requested
+                    // maxNewTokens, fail loudly instead of silently underflowing
+                    // and crashing in `tokens.suffix(...)`.
                     let nCtx = Int32(settings.contextTokens)
-                    let maxPrompt = nCtx - Int32(min(settings.maxNewTokens, 256))
+                    let reservedForOutput = Int32(min(settings.maxNewTokens, 256))
+                    guard nCtx > reservedForOutput else {
+                        throw LlamaError.contextTooSmall(nCtx: nCtx, maxNewTokens: settings.maxNewTokens)
+                    }
+                    let maxPrompt = max(1, nCtx - reservedForOutput)
                     let truncated: [llama_token]
                     if Int32(tokens.count) > maxPrompt {
                         // Keep last maxPrompt tokens (drop oldest history).
@@ -325,10 +336,19 @@ actor LlamaEngine {
                         i = end
                     }
 
-                    // Decode loop.
+                    // Decode loop with stop-string-aware look-ahead buffering.
+                    //
+                    // We keep an `unpublished` tail of size at most
+                    // `holdback` characters and only yield characters that
+                    // are guaranteed not to become part of any stop string.
+                    // When a stop string is matched, we drop the tail and
+                    // yield only the safe prefix. This avoids ever yielding
+                    // a half-stop-string and avoids the previous suffix-math
+                    // bug that could crash on a negative count.
                     var pendingBytes: [CChar] = []
-                    var emittedString = ""
+                    var unpublished = ""    // chars accumulated, not yet yielded to consumer
                     var tokensEmitted = 0
+                    let holdback = max(1, (stopStrings.map { $0.count }.max() ?? 0))
                     while tokensEmitted < settings.maxNewTokens {
                         if cancelRequested { break }
                         let newToken = llama_sampler_sample(sampling, contextPtr, batch.n_tokens - 1)
@@ -345,15 +365,29 @@ actor LlamaEngine {
                         }
 
                         if !flushed.isEmpty {
-                            emittedString += flushed
-                            // Stop string detection (substring at the tail of the emitted text).
-                            if let cutoff = stopStringIndex(in: emittedString, stops: stopStrings) {
-                                let trimmed = String(emittedString[..<cutoff])
-                                let delta = String(trimmed.suffix(trimmed.count - (emittedString.count - flushed.count)))
-                                if !delta.isEmpty { continuation.yield(delta) }
+                            unpublished += flushed
+
+                            // Did a stop string fully appear in the buffer?
+                            if let cutoff = stopStringIndex(in: unpublished, stops: stopStrings) {
+                                let safePrefix = String(unpublished[..<cutoff])
+                                if !safePrefix.isEmpty {
+                                    continuation.yield(safePrefix)
+                                }
                                 break
-                            } else {
-                                continuation.yield(flushed)
+                            }
+
+                            // Stop string not (yet) present. Yield everything
+                            // except the last `holdback` chars, which might
+                            // still grow into a stop string after the next
+                            // token. The held-back tail is yielded if and
+                            // when generation finishes without a stop hit.
+                            if unpublished.count > holdback {
+                                let safeEnd = unpublished.index(unpublished.endIndex, offsetBy: -holdback)
+                                let safePart = String(unpublished[..<safeEnd])
+                                if !safePart.isEmpty {
+                                    continuation.yield(safePart)
+                                }
+                                unpublished = String(unpublished[safeEnd...])
                             }
                         }
 
@@ -364,6 +398,12 @@ actor LlamaEngine {
                         if r != 0 { throw LlamaError.decodeFailed(r) }
                         nPast += 1
                         tokensEmitted += 1
+                    }
+                    // If we exited the loop without hitting a stop string,
+                    // flush whatever's still in the look-ahead buffer.
+                    if !unpublished.isEmpty,
+                       stopStringIndex(in: unpublished, stops: stopStrings) == nil {
+                        continuation.yield(unpublished)
                     }
                     continuation.finish()
                 } catch {

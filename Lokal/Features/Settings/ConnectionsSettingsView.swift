@@ -23,12 +23,19 @@ struct ConnectionsSettingsView: View {
             }
 
             if let pending = store.pendingDeviceFlow {
-                Section("GitHub Anmeldung läuft") {
+                Section("GitHub-Anmeldung läuft") {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Öffne diese Adresse im Browser:")
                             .font(.callout)
-                        Link(pending.verificationURL, destination: URL(string: pending.verificationURL)!)
-                            .font(.callout.weight(.medium))
+                        if let url = URL(string: pending.verificationURL) {
+                            Link(pending.verificationURL, destination: url)
+                                .font(.callout.weight(.medium))
+                        } else {
+                            Text(pending.verificationURL)
+                                .font(.callout.weight(.medium))
+                                .textSelection(.enabled)
+                                .foregroundStyle(.secondary)
+                        }
                         Text("Und gib diesen Code ein:")
                             .font(.callout)
                         Text(pending.userCode)

@@ -29,6 +29,7 @@
 		564C890859C180765AB847B4 /* ModelPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E4454CAAF7F410F2290C50 /* ModelPickerSheet.swift */; };
 		5692990516831566E9FBFC59 /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7DE9F32B174CE54BC3B49AE /* MessageBubble.swift */; };
 		5A7E17D8081F7817BF4A190B /* AddSourceSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3107C3639B107EC59DCB9B92 /* AddSourceSheet.swift */; };
+		5DEA53E00234EA0DEC167B54 /* LlamaEngineStopStringTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4606D94BCB9F10D2B174F58E /* LlamaEngineStopStringTests.swift */; };
 		5EA60D780C4DE8F2F403083D /* llama.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3C3DAFED611B9B874EEB6B3E /* llama.xcframework */; };
 		6218EBA51E1E8A0EA11B5CF9 /* VectorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFCF75EA4554FBCB2E571CAF /* VectorStore.swift */; };
 		63BD6188AADA5DDD48D25E6E /* Chunker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE8A9E933DA43A200CA1F85 /* Chunker.swift */; };
@@ -45,6 +46,7 @@
 		82680B4B07C933990D73BDB5 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F70492DF72EE0983EB328CF /* LibraryView.swift */; };
 		8505AA6DAD6F32CE1375189F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38412EBD2EE1559081A5B64C /* ChatView.swift */; };
 		913279F6E4650A68D1CBA1E2 /* EmbeddingModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9A563F8262C0EA848592717 /* EmbeddingModelStore.swift */; };
+		914BC7ED87D5ACCDF53360AD /* LlamaEngineEdgeCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 319CB23794BEC78A4D5C6229 /* LlamaEngineEdgeCaseTests.swift */; };
 		93988634713A6FD6128FBE95 /* GitHubOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000A9BBE10AFA045FE88B646 /* GitHubOAuth.swift */; };
 		9421A44BEF31581A49C653A3 /* Accelerate.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2B2F92476965AE6180081BA8 /* Accelerate.framework */; };
 		962D6CD7A06EAB8AB5D5A648 /* InferenceSmokeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 668B5889248D6A24022C05C0 /* InferenceSmokeTests.swift */; };
@@ -132,10 +134,12 @@
 		2F70492DF72EE0983EB328CF /* LibraryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryView.swift; sourceTree = "<group>"; };
 		2F9A777F4818406FD16DF8CC /* OnboardingPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingPreferences.swift; sourceTree = "<group>"; };
 		3107C3639B107EC59DCB9B92 /* AddSourceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddSourceSheet.swift; sourceTree = "<group>"; };
+		319CB23794BEC78A4D5C6229 /* LlamaEngineEdgeCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaEngineEdgeCaseTests.swift; sourceTree = "<group>"; };
 		38412EBD2EE1559081A5B64C /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		3BCB2BCD745037ADC1E14511 /* GoogleDriveOAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleDriveOAuth.swift; sourceTree = "<group>"; };
 		3C3DAFED611B9B874EEB6B3E /* llama.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = llama.xcframework; path = Frameworks/llama.xcframework; sourceTree = "<group>"; };
 		41A7F6B4DC0D071CF7392915 /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
+		4606D94BCB9F10D2B174F58E /* LlamaEngineStopStringTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaEngineStopStringTests.swift; sourceTree = "<group>"; };
 		479088E34650AA0D88456A3F /* FileLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileLog.swift; sourceTree = "<group>"; };
 		48E7A058321856FB44E63B74 /* PKCE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PKCE.swift; sourceTree = "<group>"; };
 		4CF22A7CEF4957A6878F70B1 /* MCPStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPStore.swift; sourceTree = "<group>"; };
@@ -221,6 +225,8 @@
 				FE4FBA9E4466E75892E9759E /* DownloadManagerTests.swift */,
 				668B5889248D6A24022C05C0 /* InferenceSmokeTests.swift */,
 				BA95DAD5902062C863199CAF /* Info.plist */,
+				319CB23794BEC78A4D5C6229 /* LlamaEngineEdgeCaseTests.swift */,
+				4606D94BCB9F10D2B174F58E /* LlamaEngineStopStringTests.swift */,
 				2DE86296420EA04D828224D9 /* LlamaEngineTests.swift */,
 			);
 			path = LokalTests;
@@ -645,6 +651,8 @@
 			files = (
 				3F586939FFC96FB97BBFD0B0 /* DownloadManagerTests.swift in Sources */,
 				962D6CD7A06EAB8AB5D5A648 /* InferenceSmokeTests.swift in Sources */,
+				914BC7ED87D5ACCDF53360AD /* LlamaEngineEdgeCaseTests.swift in Sources */,
+				5DEA53E00234EA0DEC167B54 /* LlamaEngineStopStringTests.swift in Sources */,
 				BBF5E0E4ABA3A82C88DDA6B6 /* LlamaEngineTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
