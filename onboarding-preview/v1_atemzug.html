@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>V1 — Atemzug</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    background: #000;
+    overflow: hidden;
+  }
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  .dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 36px 4px rgba(255,255,255,0.5);
+    opacity: 0;
+    animation:
+      dotIn 1.4s ease-out 0.2s forwards,
+      breathe 2.6s ease-in-out 1.4s infinite alternate,
+      dotOut 0.8s ease-out 5.5s forwards;
+    filter: blur(0.4px);
+  }
+  .text {
+    position: absolute;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 300;
+    font-size: 32px;
+    color: #fff;
+    letter-spacing: 0.04em;
+    opacity: 0;
+    animation: textIn 1.6s ease-in 6.0s forwards, textOut 0.9s ease-out 9.0s forwards;
+    white-space: nowrap;
+  }
+  .root {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: rootOut 0.9s ease-out 9.0s forwards;
+  }
+  @keyframes dotIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes breathe {
+    from { transform: scale(1); }
+    to { transform: scale(2.6); }
+  }
+  @keyframes dotOut {
+    to { opacity: 0; }
+  }
+  @keyframes textIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes textOut {
+    to { opacity: 0; }
+  }
+  @keyframes rootOut {
+    to { opacity: 0; }
+  }
+</style>
+</head>
+<body>
+  <div class="root">
+    <div class="dot"></div>
+    <div class="text">Alles bleibt hier.</div>
+  </div>
+</body>
+</html>

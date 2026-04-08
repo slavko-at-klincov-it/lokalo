@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>V2 — Konstellation</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: linear-gradient(180deg, #050a18 0%, #0a1028 50%, #02050f 100%);
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  body { position: relative; }
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* "Lokalo" — same font/weight/color as the caption below, just bigger.
+     Centered in the empty middle of the brain blob (cy = 50% - 60px). */
+  .title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(50% - 60px);
+    text-align: center;
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 48px;
+    letter-spacing: 0.3px;
+    line-height: 1;
+    opacity: 0;
+    transform: translateY(-50%);
+    transition: opacity 0.8s ease-in;
+    pointer-events: none;
+  }
+  .title.visible { opacity: 1; }
+
+  .caption {
+    position: absolute;
+    bottom: 88px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.86);
+    font-size: 16px;
+    line-height: 1.6;
+    letter-spacing: 0.3px;
+    opacity: 0;
+    transition: opacity 0.6s ease-in;
+    white-space: pre-line;
+  }
+  .root {
+    width: 100%;
+    height: 100%;
+    transition: opacity 0.9s ease-out;
+  }
+</style>
+</head>
+<body>
+<div class="root" id="root">
+  <canvas id="canvas"></canvas>
+  <div class="title" id="title">Lokalo</div>
+  <div class="caption" id="caption"></div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const title = document.getElementById('title');
+const caption = document.getElementById('caption');
+const root = document.getElementById('root');
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  ctx.scale(dpr, dpr);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const W = window.innerWidth;
+const H = window.innerHeight;
+const cx = W / 2;
+const cy = H / 2 - 60;
+
+// 38 particles, start at random edge, target = brain blob shape
+const particles = [];
+for (let i = 0; i < 38; i++) {
+  const edge = i % 4;
+  let sx, sy;
+  if (edge === 0)      { sx = -50;     sy = Math.random() * H; }
+  else if (edge === 1) { sx = W + 50;  sy = Math.random() * H; }
+  else if (edge === 2) { sx = Math.random() * W; sy = -50; }
+  else                 { sx = Math.random() * W; sy = H + 50; }
+
+  const angle = (i / 38) * Math.PI * 2;
+  const r = 70 + Math.random() * 65;
+  const tx = cx + Math.cos(angle) * r;
+  const ty = cy + Math.sin(angle) * r * 0.85;
+
+  particles.push({
+    x: sx, y: sy, tx, ty,
+    size: 1.6 + Math.random() * 2,
+    opacity: 0,
+    targetOpacity: 0.55 + Math.random() * 0.45,
+    startTime: Math.random() * 0.5,
+    gatherDelay: 1.1 + Math.random() * 0.4,
+    dissolved: false,
+    dissolveTarget: 0,
+    dissolveDir: i % 2 === 0 ? 1 : -1
+  });
+}
+
+const phases = {
+  scatter: false,
+  gather: false,
+  dissolve: false
+};
+
+let t0 = performance.now();
+function loop(now) {
+  const t = (now - t0) / 1000; // seconds
+  ctx.clearRect(0, 0, W, H);
+
+  // Update particles
+  for (const p of particles) {
+    // Fade in
+    if (t > p.startTime) {
+      p.opacity += (p.targetOpacity - p.opacity) * 0.06;
+    }
+    // Gather
+    if (t > p.gatherDelay && !p.dissolved) {
+      p.x += (p.tx - p.x) * 0.05;
+      p.y += (p.ty - p.y) * 0.05;
+    }
+    // Dissolve
+    if (phases.dissolve) {
+      p.y += p.dissolveDir * 1.5;
+      p.opacity *= 0.97;
+    }
+  }
+
+  // Draw connections
+  if (t > 1.0) {
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const a = particles[i];
+        const b = particles[j];
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < 95) {
+          const alpha = (1 - d/95) * 0.18 * Math.min(a.opacity, b.opacity);
+          ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // Draw points
+  for (const p of particles) {
+    ctx.fillStyle = `rgba(255,255,255,${p.opacity})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (t < 12) requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// Type out caption
+function typeOut(target, el, charDelay) {
+  let i = 0;
+  function step() {
+    if (i <= target.length) {
+      el.textContent = target.slice(0, i);
+      i++;
+      setTimeout(step, charDelay);
+    }
+  }
+  step();
+}
+
+// Caption types out first (constellation is also forming during this time)
+setTimeout(() => {
+  caption.style.opacity = '1';
+  typeOut('Lokale KI,\nohne Konto, Cloud, oder Werbung.', caption, 50);
+}, 3000);
+
+// Title appears AFTER caption is fully typed and constellation is settled.
+// Caption: 38 chars × 50 ms ≈ 1.9 s, so fully typed at ~4.9 s. Add a small
+// breath then fade in the title at 5.2 s.
+setTimeout(() => {
+  title.classList.add('visible');
+}, 5200);
+
+// Dissolve everything
+setTimeout(() => {
+  phases.dissolve = true;
+  title.style.opacity = '0';
+  caption.style.opacity = '0';
+}, 9000);
+setTimeout(() => {
+  root.style.opacity = '0';
+}, 10000);
+</script>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Sternenwort — Lokalo</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: linear-gradient(180deg, #050a18 0%, #0a1028 50%, #02050f 100%);
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  body { position: relative; }
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .lokalo {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(50% - 95px);
+    text-align: center;
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 300;
+    font-size: 64px;
+    letter-spacing: -0.5px;
+    background: linear-gradient(180deg, #ffffff 0%, #d8e0f0 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow:
+      0 0 60px rgba(150, 180, 255, 0.45),
+      0 0 100px rgba(80, 120, 220, 0.22);
+    opacity: 0;
+    transform: scale(0.92);
+    transition:
+      opacity 1.4s ease-in,
+      transform 1.4s cubic-bezier(0.2, 0.8, 0.3, 1.05);
+    pointer-events: none;
+  }
+  .lokalo.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .root {
+    width: 100%;
+    height: 100%;
+    transition: opacity 0.9s ease-out;
+  }
+</style>
+</head>
+<body>
+<div class="root" id="root">
+  <canvas id="canvas"></canvas>
+  <div class="lokalo" id="lokalo">Lokalo</div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const root = document.getElementById('root');
+const lokalo = document.getElementById('lokalo');
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + 'px';
+  canvas.style.height = window.innerHeight + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const W = window.innerWidth;
+const H = window.innerHeight;
+
+// === V2 Konstellation animation, exact ===
+const cx = W / 2;
+const cy = H / 2 - 60;
+
+const particles = [];
+for (let i = 0; i < 38; i++) {
+  const edge = i % 4;
+  let sx, sy;
+  if (edge === 0)      { sx = -50;     sy = Math.random() * H; }
+  else if (edge === 1) { sx = W + 50;  sy = Math.random() * H; }
+  else if (edge === 2) { sx = Math.random() * W; sy = -50; }
+  else                 { sx = Math.random() * W; sy = H + 50; }
+
+  const angle = (i / 38) * Math.PI * 2;
+  const r = 70 + Math.random() * 65;
+  const tx = cx + Math.cos(angle) * r;
+  const ty = cy + Math.sin(angle) * r * 0.85;
+
+  particles.push({
+    x: sx, y: sy, tx, ty,
+    size: 1.6 + Math.random() * 2,
+    opacity: 0,
+    targetOpacity: 0.55 + Math.random() * 0.45,
+    startTime: Math.random() * 0.5,
+    gatherDelay: 1.1 + Math.random() * 0.4,
+    dissolved: false,
+    dissolveDir: i % 2 === 0 ? 1 : -1
+  });
+}
+
+const phases = { dissolve: false };
+let t0 = performance.now();
+
+function loop(now) {
+  const t = (now - t0) / 1000;
+  ctx.clearRect(0, 0, W, H);
+
+  for (const p of particles) {
+    if (t > p.startTime) {
+      p.opacity += (p.targetOpacity - p.opacity) * 0.06;
+    }
+    if (t > p.gatherDelay && !p.dissolved) {
+      p.x += (p.tx - p.x) * 0.05;
+      p.y += (p.ty - p.y) * 0.05;
+    }
+    if (phases.dissolve) {
+      p.y += p.dissolveDir * 1.5;
+      p.opacity *= 0.97;
+    }
+  }
+
+  // Connection lines
+  if (t > 1.0) {
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const a = particles[i];
+        const b = particles[j];
+        const dx = a.x - b.x;
+        const dy = a.y - b.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < 95) {
+          const alpha = (1 - d/95) * 0.18 * Math.min(a.opacity, b.opacity);
+          ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+
+  // Particles
+  for (const p of particles) {
+    ctx.fillStyle = `rgba(255,255,255,${p.opacity})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (t < 14) requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// === Lokalo emerges as the constellation completes ===
+setTimeout(() => lokalo.classList.add('visible'), 2500);
+
+// Dissolve everything
+setTimeout(() => {
+  phases.dissolve = true;
+  lokalo.style.opacity = '0';
+}, 8000);
+setTimeout(() => {
+  root.style.opacity = '0';
+}, 9000);
+</script>
+</body>
+</html>

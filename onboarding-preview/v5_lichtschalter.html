@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>V5 — Lichtschalter</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  body {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+  .root {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: opacity 0.5s ease-out;
+  }
+  .stack {
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+    align-items: center;
+    transition: opacity 0.9s ease-in-out, transform 0.9s ease-in-out;
+  }
+  .stack.merged { opacity: 0; transform: translateY(-40px); }
+  .word {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 300;
+    font-size: 38px;
+    color: white;
+    letter-spacing: 0.5px;
+    opacity: 0;
+    transition: opacity 0.8s ease-out;
+  }
+  .word.in { opacity: 1; }
+  .title-wrap {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+    opacity: 0;
+    transform: scale(0.85);
+    transition: opacity 0.85s cubic-bezier(0.2, 0.8, 0.3, 1.2),
+                transform 0.85s cubic-bezier(0.2, 0.8, 0.3, 1.2);
+  }
+  .title-wrap.visible {
+    opacity: 1;
+    transform: scale(1);
+  }
+  .lokalo {
+    font-family: "Cormorant Garamond", Georgia, serif;
+    font-weight: 300;
+    font-size: 78px;
+    background: linear-gradient(180deg, #ffffff 0%, #d2d2d2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -1px;
+  }
+  .hint {
+    font-size: 11px;
+    color: rgba(255,255,255,0.42);
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    opacity: 0;
+    transition: opacity 0.6s ease-in;
+    animation: hintPulse 2.8s ease-in-out infinite;
+    animation-play-state: paused;
+  }
+  .hint.visible {
+    opacity: 0.85;
+    animation-play-state: running;
+  }
+  @keyframes hintPulse {
+    0%, 100% { opacity: 0.85; }
+    50% { opacity: 0.35; }
+  }
+  .flash {
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease-in;
+  }
+  .flash.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="root" id="root">
+  <div class="stack" id="stack">
+    <div class="word" id="w1">Lokal.</div>
+    <div class="word" id="w2">Privat.</div>
+    <div class="word" id="w3">Dein iPhone.</div>
+  </div>
+  <div class="title-wrap" id="titleWrap">
+    <div class="lokalo">Lokalo</div>
+    <div class="hint" id="hint">zum Starten tippen</div>
+  </div>
+  <div class="flash" id="flash"></div>
+</div>
+
+<script>
+const root = document.getElementById('root');
+const stack = document.getElementById('stack');
+const w1 = document.getElementById('w1');
+const w2 = document.getElementById('w2');
+const w3 = document.getElementById('w3');
+const titleWrap = document.getElementById('titleWrap');
+const hint = document.getElementById('hint');
+const flash = document.getElementById('flash');
+
+let canTap = false;
+
+setTimeout(() => w1.classList.add('in'), 500);
+setTimeout(() => w2.classList.add('in'), 1700);
+setTimeout(() => w3.classList.add('in'), 2900);
+
+setTimeout(() => {
+  stack.classList.add('merged');
+}, 4600);
+
+setTimeout(() => {
+  titleWrap.classList.add('visible');
+  setTimeout(() => {
+    hint.classList.add('visible');
+    canTap = true;
+  }, 800);
+}, 5100);
+
+function triggerFlash() {
+  if (!canTap) return;
+  canTap = false;
+  flash.classList.add('on');
+  setTimeout(() => {
+    root.style.opacity = '0';
+  }, 280);
+}
+
+document.body.addEventListener('click', triggerFlash);
+
+// Auto advance after 9.5 s
+setTimeout(triggerFlash, 9500);
+</script>
+</body>
+</html>

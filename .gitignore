@@ -1,0 +1,41 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Xcode build output / derived data
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+*.moved-aside
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Package.resolved
+.netrc
+
+# llama.cpp XCFramework — too large for git, fetched on demand
+Frameworks/llama.xcframework/
+Frameworks/*.zip
+Frameworks/build-apple/
+
+# Local logs and temp captures
+/tmp/lokalo-logs/
+*.log
+
+# Generated Xcode project (uncomment to enforce xcodegen-only workflow)
+# Lokal.xcodeproj/
+
+# IDE
+.idea/
+.vscode/
+*.swp

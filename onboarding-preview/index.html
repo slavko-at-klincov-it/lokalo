@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Lokalo · Onboarding Konzepte</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  :root {
+    --bg: #0a0c10;
+    --fg: #ebeef3;
+    --muted: #7a818c;
+    --border: #1c2026;
+    --accent: #1b6fed;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  header {
+    padding: 56px 32px 32px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 {
+    margin: 0 0 12px;
+    font-size: 38px;
+    font-weight: 200;
+    letter-spacing: -0.02em;
+  }
+  header p {
+    margin: 0 0 24px;
+    color: var(--muted);
+    font-size: 15px;
+  }
+  .replay-all {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 12px 26px;
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.15s;
+  }
+  .replay-all:hover { transform: translateY(-1px); background: #1659c4; }
+  .replay-all:active { transform: translateY(0); }
+  main {
+    padding: 48px 32px 80px;
+    max-width: 1900px;
+    margin: 0 auto;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+    gap: 32px;
+  }
+  .card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+  .phone {
+    position: relative;
+    width: 290px;
+    height: 628px;
+    border-radius: 44px;
+    background: #000;
+    padding: 8px;
+    box-shadow:
+      0 0 0 1px #1f242c,
+      0 0 0 5px #0e1116,
+      0 30px 60px -20px rgba(0,0,0,0.8),
+      0 12px 24px -8px rgba(27,111,237,0.10);
+    overflow: hidden;
+  }
+  .notch {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 110px;
+    height: 30px;
+    background: #000;
+    border-radius: 16px;
+    z-index: 10;
+    pointer-events: none;
+  }
+  .phone iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+    border-radius: 36px;
+    background: #000;
+  }
+  .label {
+    margin-top: 22px;
+  }
+  .label .num {
+    display: inline-block;
+    width: 22px;
+    height: 22px;
+    line-height: 22px;
+    border-radius: 100px;
+    background: var(--accent);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+  .label .name {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    vertical-align: middle;
+  }
+  .label .tone {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .label p {
+    margin: 12px 0 0;
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.55;
+    max-width: 280px;
+  }
+  .replay-card {
+    margin-top: 14px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--fg);
+    padding: 8px 16px;
+    border-radius: 100px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .replay-card:hover {
+    border-color: var(--accent);
+    background: rgba(27,111,237,0.08);
+  }
+  footer {
+    padding: 32px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid var(--border);
+  }
+  footer code {
+    color: var(--accent);
+    background: rgba(27,111,237,0.10);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: "JetBrains Mono", "SF Mono", Menlo, monospace;
+    font-size: 12px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Lokalo · 5 Onboarding-Konzepte</h1>
+  <p>Klick auf eines der Konzepte unten oder „Alle neu starten“ um die Animationen synchron abzuspielen.</p>
+  <button class="replay-all" onclick="replayAll()">↻ Alle neu starten</button>
+</header>
+
+<main>
+  <div style="margin-bottom: 56px; padding: 32px; border: 1px solid #1c2026; border-radius: 16px; background: linear-gradient(180deg, rgba(27,111,237,0.06), transparent);">
+    <div style="display: flex; align-items: center; gap: 32px; flex-wrap: wrap; justify-content: center;">
+      <div class="phone">
+        <div class="notch"></div>
+        <iframe id="ifMix" src="mix_sternenwort.html"></iframe>
+      </div>
+      <div style="flex: 1; min-width: 280px; max-width: 480px;">
+        <div style="font-size: 11px; color: #1b6fed; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">★ Slavkos Wahl</div>
+        <h2 style="margin: 0 0 8px; font-size: 32px; font-weight: 300; letter-spacing: -0.02em;">Sternenwort</h2>
+        <div style="color: #7a818c; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px;">Mix V2 Konstellation × V5 Lichtschalter</div>
+        <p style="color: #ebeef3; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">Punkte driften aus den Rändern, formen während der Bewegung ein Gehirn-Blob. Mitten in der Konstellation erscheinen die drei Worte <em>Lokal.</em> · <em>Privat.</em> · <em>Dein iPhone.</em> nacheinander. Wenn die Brain-Verbindungen komplett sind, emerged der Titel <em>Lokalo</em> aus dem Zentrum. Pulsing Hint, Tap → Weißblitz, Punkte scattern raus.</p>
+        <p style="color: #7a818c; font-size: 13px; margin: 0 0 16px;">~10 s · Tap zum Skip · auto-advance nach 11 s · Cormorant Garamond Light</p>
+        <button class="replay-card" onclick="replay('ifMix','mix_sternenwort.html')">↻ Replay diesen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <div class="card">
+      <div class="phone">
+        <div class="notch"></div>
+        <iframe id="if1" src="v1_atemzug.html"></iframe>
+      </div>
+      <div class="label">
+        <div><span class="num">1</span><span class="name">Atemzug</span></div>
+        <div class="tone">Apple Hello · Pure Restraint</div>
+        <p>Atmender Punkt → Satz „Alles bleibt hier." → Fade. Anti-Onboarding. Vertraut dem User dass er das Offensichtliche selbst kapiert.</p>
+        <button class="replay-card" onclick="replay('if1','v1_atemzug.html')">↻ Replay</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="phone">
+        <div class="notch"></div>
+        <iframe id="if2" src="v2_konstellation.html"></iframe>
+      </div>
+      <div class="label">
+        <div><span class="num">2</span><span class="name">Konstellation</span></div>
+        <div class="tone">Star Walk · Brilliant Night</div>
+        <p>Punktwolke fliegt von außen rein, formt ein Gehirn-Blob mit Verbindungen. Visualisiert das LLM literal als „etwas das auf deinem iPhone wohnt".</p>
+        <button class="replay-card" onclick="replay('if2','v2_konstellation.html')">↻ Replay</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="phone">
+        <div class="notch"></div>
+        <iframe id="if3" src="v3_brief.html"></iframe>
+      </div>
+      <div class="label">
+        <div><span class="num">3</span><span class="name">Brief von daheim</span></div>
+        <div class="tone">Wes Anderson · Pen Pals</div>
+        <p>Handgeschriebener Brief slidet rein, Text tippt sich Wort für Wort. Tactile, warm, persönlich. Analog gegen Hightech.</p>
+        <button class="replay-card" onclick="replay('if3','v3_brief.html')">↻ Replay</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="phone">
+        <div class="notch"></div>
+        <iframe id="if4" src="v4_tokens.html"></iframe>
+      </div>
+      <div class="label">
+        <div><span class="num">4</span><span class="name">Tokens</span></div>
+        <div class="tone">Cyberpunk Monospace · Linear Poster</div>
+        <p>Token-Capsules streamen vom Bildschirmboden hoch, „Lokalo" emerged aus dem Stream. Meta: das was die App tut IST das Welcome.</p>
+        <button class="replay-card" onclick="replay('if4','v4_tokens.html')">↻ Replay</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="phone">
+        <div class="notch"></div>
+        <iframe id="if5" src="v5_lichtschalter.html"></iframe>
+      </div>
+      <div class="label">
+        <div><span class="num">5</span><span class="name">Lichtschalter</span></div>
+        <div class="tone">Apple Keynote · Quiet Luxury</div>
+        <p>Drei Worte erscheinen einzeln, mergen zu „Lokalo", Tap → Weißblitz → Chat. Drei Werte → ein Name. Cinematic.</p>
+        <button class="replay-card" onclick="replay('if5','v5_lichtschalter.html')">↻ Replay</button>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  Open im Browser: <code>file:///Users/slavkoklincov/Code/OllamaAmIphone/onboarding-preview/index.html</code><br><br>
+  Der Swift-Source für die produktive App liegt in <code>Lokal/Features/Onboarding/V{1-5}_*.swift</code> — die HTML-Versionen hier sind 1:1 äquivalente Prototypen für den Browser.
+</footer>
+
+<script>
+  function replay(id, src) {
+    const f = document.getElementById(id);
+    f.src = 'about:blank';
+    setTimeout(() => f.src = src, 50);
+  }
+  function replayAll() {
+    const map = {
+      ifMix: 'mix_sternenwort.html',
+      if1: 'v1_atemzug.html',
+      if2: 'v2_konstellation.html',
+      if3: 'v3_brief.html',
+      if4: 'v4_tokens.html',
+      if5: 'v5_lichtschalter.html'
+    };
+    Object.keys(map).forEach(id => replay(id, map[id]));
+  }
+</script>
+
+</body>
+</html>
