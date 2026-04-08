@@ -30,19 +30,20 @@ final class ChatStore {
     private(set) var statusBanner: String?
 
     private var engine: LlamaEngine?
-    private weak var modelStore: ModelStore?
-    private weak var kbStore: KnowledgeBaseStore?
-    private weak var indexingService: IndexingService?
-    private weak var mcpStore: MCPStore?
+    /// Strong references — owned by LokalApp's dependency graph. Forming a
+    /// DAG (no cycles), so strong refs are correct and remove an entire
+    /// class of "weak nil → silent feature degradation" bugs.
+    private let modelStore: ModelStore
+    private let kbStore: KnowledgeBaseStore
+    private let indexingService: IndexingService
+    private let mcpStore: MCPStore
     private var streamTask: Task<Void, Never>?
 
-    func attach(modelStore: ModelStore) {
+    init(modelStore: ModelStore,
+         kbStore: KnowledgeBaseStore,
+         indexingService: IndexingService,
+         mcpStore: MCPStore) {
         self.modelStore = modelStore
-    }
-
-    func attach(kbStore: KnowledgeBaseStore,
-                indexingService: IndexingService,
-                mcpStore: MCPStore) {
         self.kbStore = kbStore
         self.indexingService = indexingService
         self.mcpStore = mcpStore
@@ -95,7 +96,7 @@ final class ChatStore {
     /// Backwards-compatible shim used by call sites that just want "make sure
     /// the active model is loaded". Internally delegates to `switchTo`.
     func ensureEngineLoaded() async {
-        guard let modelStore, let active = modelStore.activeModel else {
+        guard let active = modelStore.activeModel else {
             await tearDownEngine()
             loadState = .idle
             return
@@ -107,7 +108,6 @@ final class ChatStore {
     /// `loadState` machine through `.unloading → .loading(progress) → .ready`.
     /// Safe to call from `.task(id:)` — re-entry on the same model is a no-op.
     func switchTo(modelID: String) async {
-        guard let modelStore else { return }
         guard let target = ModelCatalog.entry(id: modelID),
               modelStore.isInstalled(modelID) else {
             await tearDownEngine()
@@ -203,7 +203,7 @@ final class ChatStore {
 
     func send(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, let engine, let modelStore, let active = modelStore.activeModel else {
+        guard !trimmed.isEmpty, let engine, let active = modelStore.activeModel else {
             FileLog.write("ChatStore.send: REJECTED (empty or no engine)")
             return
         }
@@ -215,6 +215,8 @@ final class ChatStore {
         isStreaming = true
         statusBanner = nil
 
+        // Capture strong references to the dependency stores so the
+        // detached task can talk to them without weak/optional gymnastics.
         let kbStore = self.kbStore
         let indexingService = self.indexingService
         let mcpStore = self.mcpStore
@@ -228,12 +230,10 @@ final class ChatStore {
             // 1) RAG augmentation: retrieve top-K chunks if a knowledge base is active.
             var citations: [Citation] = []
             var augmentedSystem = baseSystem
-            if let kbStore = await kbStore,
-               let activeKB = await kbStore.activeBase,
-               await kbStore.ragEnabled,
-               let indexer = await indexingService {
+            if let activeKB = await kbStore.activeBase,
+               await kbStore.ragEnabled {
                 do {
-                    let hits = try await indexer.query(queryText, baseID: activeKB.id, topK: 5)
+                    let hits = try await indexingService.query(queryText, baseID: activeKB.id, topK: 5)
                     if !hits.isEmpty {
                         let contextLines = hits.enumerated().map { idx, hit -> String in
                             let snippet = hit.chunk.text.replacingOccurrences(of: "\n", with: " ")
@@ -265,15 +265,13 @@ final class ChatStore {
 
             // 2) MCP tools advertisement (best-effort).
             var toolsBySignature: [String: MCPClientService.DiscoveredTool] = [:]
-            if let mcpStore = await mcpStore {
-                let tools = await mcpStore.discoveredTools()
-                if !tools.isEmpty {
-                    let descriptions = tools.map { "\($0.toolName): \($0.description)" }
-                    let toolsSection = ToolCallParser.systemPromptSection(toolDescriptions: descriptions)
-                    augmentedSystem += toolsSection
-                    for tool in tools {
-                        toolsBySignature[tool.toolName] = tool
-                    }
+            let tools = await mcpStore.discoveredTools()
+            if !tools.isEmpty {
+                let descriptions = tools.map { "\($0.toolName): \($0.description)" }
+                let toolsSection = ToolCallParser.systemPromptSection(toolDescriptions: descriptions)
+                augmentedSystem += toolsSection
+                for tool in tools {
+                    toolsBySignature[tool.toolName] = tool
                 }
             }
 
@@ -314,8 +312,7 @@ final class ChatStore {
 
                 // Tool-call detection.
                 if let parsed = ToolCallParser.parse(assistantText),
-                   let tool = toolsBySignature[parsed.name],
-                   let mcpStore = await mcpStore {
+                   let tool = toolsBySignature[parsed.name] {
                     let serverID = tool.serverID
                     let toolName = tool.toolName
                     let label = "Tool: \(toolName) wird ausgeführt …"

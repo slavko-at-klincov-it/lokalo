@@ -241,10 +241,6 @@ struct ChatView: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        ChatView(path: .constant(NavigationPath()))
-            .environment(ModelStore())
-            .environment(ChatStore())
-    }
-}
+// SwiftUI #Preview removed: ChatView depends on the full LokalApp store
+// graph (ModelStore, ChatStore, KnowledgeBaseStore, …). Run the app in
+// the simulator to iterate on this view.

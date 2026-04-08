@@ -26,13 +26,13 @@ final class EmbeddingDownloader {
     var bytesTotal: Int64 = 0
     var currentEntryID: String?
 
-    private weak var store: EmbeddingModelStore?
+    private let store: EmbeddingModelStore
 
     var progress: Double {
         bytesTotal > 0 ? min(1.0, Double(bytesDownloaded) / Double(bytesTotal)) : 0
     }
 
-    func attach(store: EmbeddingModelStore) {
+    init(store: EmbeddingModelStore) {
         self.store = store
     }
 
@@ -96,7 +96,7 @@ final class EmbeddingDownloader {
             }
             try FileManager.default.moveItem(at: partial, to: final)
             state = .completed
-            store?.markInstalled(entry.id)
+            store.markInstalled(entry.id)
         } catch {
             state = .failed(error.lokaloMessage)
             try? FileManager.default.removeItem(at: partial)

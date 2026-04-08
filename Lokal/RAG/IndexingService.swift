@@ -26,9 +26,9 @@ final class IndexingService {
     var current: Progress?
     var lastError: String?
 
-    private weak var kbStore: KnowledgeBaseStore?
-    private weak var embeddingStore: EmbeddingModelStore?
-    private weak var connectionStore: ConnectionStore?
+    private let kbStore: KnowledgeBaseStore
+    private let embeddingStore: EmbeddingModelStore
+    private let connectionStore: ConnectionStore
     private var task: Task<Void, Never>?
 
     /// Per-source cache of loaded VectorStore + ChunkStore so that
@@ -41,12 +41,17 @@ final class IndexingService {
     }
     private var loadedStores: [UUID: LoadedStore] = [:]
 
-    func attach(kbStore: KnowledgeBaseStore,
-                embeddingStore: EmbeddingModelStore,
-                connectionStore: ConnectionStore?) {
+    init(kbStore: KnowledgeBaseStore,
+         embeddingStore: EmbeddingModelStore,
+         connectionStore: ConnectionStore) {
         self.kbStore = kbStore
         self.embeddingStore = embeddingStore
         self.connectionStore = connectionStore
+        // Drop cached VectorStore/ChunkStore for any source the user
+        // removes, so the next query reloads a fresh copy.
+        kbStore.onSourceRemoved = { [weak self] sourceID in
+            Task { @MainActor in self?.invalidateCache(for: sourceID) }
+        }
     }
 
     func cancel() {
@@ -69,7 +74,6 @@ final class IndexingService {
 
     /// Index a single source from scratch (drops any previous chunks for it).
     func indexSource(_ source: KnowledgeSource, in baseID: UUID) {
-        guard let kbStore, let embeddingStore else { return }
         guard let entry = embeddingStore.activeEntry,
               embeddingStore.isInstalled(entry.id) else {
             lastError = "Bitte zuerst ein Embedding-Modell laden."
@@ -94,7 +98,7 @@ final class IndexingService {
         )
         lastError = nil
 
-        let connectionStore = self.connectionStore
+        let connectionStoreRef = self.connectionStore
         let kbStoreRef = kbStore
         let embeddingStoreRef = embeddingStore
 
@@ -123,13 +127,9 @@ final class IndexingService {
                     )
                 case .githubRepo, .googleDriveFolder, .onedriveFolder:
                     // Remote sources go through the connection-specific fetcher.
-                    guard let connectionStore else {
-                        await MainActor.run { self?.lastError = "Keine Verbindungen verfügbar." }
-                        return
-                    }
                     let temp = try Self.makeTempDirectory()
                     defer { try? FileManager.default.removeItem(at: temp) }
-                    try await connectionStore.fetchAllFiles(
+                    try await connectionStoreRef.fetchAllFiles(
                         for: source,
                         into: temp
                     )
@@ -152,7 +152,7 @@ final class IndexingService {
                     var failed = source
                     failed.status = .error
                     failed.statusMessage = error.lokaloMessage
-                    self?.kbStore?.update(source: failed)
+                    self?.kbStore.update(source: failed)
                     self?.current = nil
                 }
             }
@@ -249,9 +249,7 @@ final class IndexingService {
     /// for the rest of the session, so subsequent queries (and chat tool-call
     /// loops) hit memory instead of disk.
     func query(_ text: String, baseID: UUID, topK: Int = 5) async throws -> [RetrievalHit] {
-        guard let kbStore = self.kbStore,
-              let embeddingStore = self.embeddingStore,
-              let kb = kbStore.bases.first(where: { $0.id == baseID }) else {
+        guard let kb = kbStore.bases.first(where: { $0.id == baseID }) else {
             return []
         }
         guard let entry = embeddingStore.activeEntry,

@@ -41,8 +41,7 @@ final class DownloadManagerTests: XCTestCase {
 
         let store = ModelStore()
         await store.bootstrap()
-        let manager = DownloadManager()
-        manager.attach(modelStore: store)
+        let manager = DownloadManager(modelStore: store)
 
         manager.startDownload(for: entry)
         // Wait up to 25s for at least 1 MB of progress.

@@ -458,10 +458,6 @@ struct LibraryView: View {
     }
 }
 
-#Preview {
-    NavigationStack {
-        LibraryView(path: .constant(NavigationPath()))
-            .environment(ModelStore())
-            .environment(DownloadManager())
-    }
-}
+// SwiftUI #Preview removed: LibraryView depends on the full LokalApp store
+// graph (ModelStore, DownloadManager). Run the app in the simulator to
+// iterate on this view.

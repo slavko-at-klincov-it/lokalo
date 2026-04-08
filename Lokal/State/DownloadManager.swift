@@ -55,7 +55,7 @@ final class DownloadManager {
     /// `NWPathMonitor` running on a background queue. Read by the UI to
     /// decide whether to warn the user about cellular downloads.
     private(set) var currentNetworkType: NetworkType = .wifi
-    private weak var modelStore: ModelStore?
+    private let modelStore: ModelStore
     private var sessionDelegate: DelegateBox?
     private var session: URLSession?
     private var taskMap: [Int: String] = [:]      // urlSessionTask.taskIdentifier → modelID
@@ -66,17 +66,14 @@ final class DownloadManager {
     nonisolated(unsafe) private var pathMonitor: NWPathMonitor?
     private let pathMonitorQueue = DispatchQueue(label: "lokalo.downloadmanager.pathmonitor")
 
-    init() {
+    init(modelStore: ModelStore) {
+        self.modelStore = modelStore
         setupSession()
         startPathMonitoring()
     }
 
     deinit {
         pathMonitor?.cancel()
-    }
-
-    func attach(modelStore: ModelStore) {
-        self.modelStore = modelStore
     }
 
     /// True when the user is currently on cellular AND has not opted in to
@@ -303,7 +300,7 @@ final class DownloadManager {
             try FileManager.default.moveItem(at: partial, to: final)
             task.state = .completed
             task.bytesDownloaded = task.bytesTotal
-            modelStore?.markInstalled(entry.id)
+            modelStore.markInstalled(entry.id)
         } catch {
             task.state = .failed("Konnte Datei nicht speichern: \(error.lokaloMessage)")
             task.error = task.state == .failed("") ? "" : "\(error)"

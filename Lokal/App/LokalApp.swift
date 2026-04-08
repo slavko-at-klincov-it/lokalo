@@ -7,15 +7,51 @@ import SwiftUI
 
 @main
 struct LokalApp: App {
-    @State private var modelStore = ModelStore()
-    @State private var downloadManager = DownloadManager()
-    @State private var chatStore = ChatStore()
-    @State private var kbStore = KnowledgeBaseStore()
-    @State private var embeddingStore = EmbeddingModelStore()
-    @State private var embeddingDownloader = EmbeddingDownloader()
-    @State private var indexingService = IndexingService()
-    @State private var connectionStore = ConnectionStore()
-    @State private var mcpStore = MCPStore()
+    // Build the entire dependency graph in one place. Each store takes its
+    // dependencies in `init`, so the type system enforces the order and
+    // forgetting one is a compile error — there is no `attach()` pattern
+    // and no weak references to mutate at runtime.
+    @State private var modelStore: ModelStore
+    @State private var kbStore: KnowledgeBaseStore
+    @State private var embeddingStore: EmbeddingModelStore
+    @State private var connectionStore: ConnectionStore
+    @State private var mcpStore: MCPStore
+    @State private var downloadManager: DownloadManager
+    @State private var embeddingDownloader: EmbeddingDownloader
+    @State private var indexingService: IndexingService
+    @State private var chatStore: ChatStore
+
+    init() {
+        let modelStore = ModelStore()
+        let kbStore = KnowledgeBaseStore()
+        let embeddingStore = EmbeddingModelStore()
+        let connectionStore = ConnectionStore()
+        let mcpStore = MCPStore()
+
+        let downloadManager = DownloadManager(modelStore: modelStore)
+        let embeddingDownloader = EmbeddingDownloader(store: embeddingStore)
+        let indexingService = IndexingService(
+            kbStore: kbStore,
+            embeddingStore: embeddingStore,
+            connectionStore: connectionStore
+        )
+        let chatStore = ChatStore(
+            modelStore: modelStore,
+            kbStore: kbStore,
+            indexingService: indexingService,
+            mcpStore: mcpStore
+        )
+
+        _modelStore         = State(wrappedValue: modelStore)
+        _kbStore            = State(wrappedValue: kbStore)
+        _embeddingStore     = State(wrappedValue: embeddingStore)
+        _connectionStore    = State(wrappedValue: connectionStore)
+        _mcpStore           = State(wrappedValue: mcpStore)
+        _downloadManager    = State(wrappedValue: downloadManager)
+        _embeddingDownloader = State(wrappedValue: embeddingDownloader)
+        _indexingService    = State(wrappedValue: indexingService)
+        _chatStore          = State(wrappedValue: chatStore)
+    }
 
     /// First-launch flag — when false, the OnboardingFlow runs before the
     /// chat experience is revealed. Persists across launches in UserDefaults.
@@ -49,6 +85,8 @@ struct LokalApp: App {
             .preferredColorScheme(nil)
             .tint(.accentColor)
             .task {
+                // The dependency graph is wired by `init`. This task only
+                // runs the *async* bootstrap that needs to load disk state.
                 FileLog.resetForLaunch()
                 FileLog.write("LokaloApp.task fired")
                 await modelStore.bootstrap()
@@ -57,26 +95,6 @@ struct LokalApp: App {
                 kbStore.bootstrap()
                 connectionStore.bootstrap()
                 mcpStore.bootstrap()
-                downloadManager.attach(modelStore: modelStore)
-                embeddingDownloader.attach(store: embeddingStore)
-                indexingService.attach(
-                    kbStore: kbStore,
-                    embeddingStore: embeddingStore,
-                    connectionStore: connectionStore
-                )
-                // Drop cached VectorStore/ChunkStore for any source the
-                // user removes, so the next query reloads a fresh copy.
-                kbStore.onSourceRemoved = { [weak indexingService] sourceID in
-                    Task { @MainActor in
-                        indexingService?.invalidateCache(for: sourceID)
-                    }
-                }
-                chatStore.attach(modelStore: modelStore)
-                chatStore.attach(
-                    kbStore: kbStore,
-                    indexingService: indexingService,
-                    mcpStore: mcpStore
-                )
                 await downloadManager.resumePending()
                 await mcpStore.connectAllEnabled()
                 await chatStore.runAutoTestPromptIfPresent()
