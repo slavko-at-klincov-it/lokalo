@@ -8,10 +8,12 @@ import SwiftUI
 struct ChatView: View {
     @Environment(ModelStore.self) private var modelStore
     @Environment(ChatStore.self) private var chatStore
+    @Environment(KnowledgeBaseStore.self) private var kbStore
     @Binding var path: NavigationPath
     @State private var input: String = ""
     @State private var showSettings = false
     @State private var showModelPicker = false
+    @State private var showKnowledge = false
     @State private var showNewChatConfirm = false
     @FocusState private var inputFocused: Bool
 
@@ -23,6 +25,10 @@ struct ChatView: View {
                 .safeAreaInset(edge: .bottom) { composer }
             if case .loading = chatStore.loadState {
                 loadingBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+            if let banner = chatStore.statusBanner {
+                statusBanner(text: banner)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
@@ -51,10 +57,17 @@ struct ChatView: View {
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    showSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
+                HStack(spacing: 16) {
+                    Button {
+                        showKnowledge = true
+                    } label: {
+                        Image(systemName: ragIndicator)
+                    }
+                    Button {
+                        showSettings = true
+                    } label: {
+                        Image(systemName: "gearshape")
+                    }
                 }
             }
         }
@@ -63,6 +76,9 @@ struct ChatView: View {
         }
         .sheet(isPresented: $showModelPicker) {
             ModelPickerSheet(path: $path)
+        }
+        .sheet(isPresented: $showKnowledge) {
+            KnowledgeView()
         }
         .confirmationDialog("Neue Unterhaltung beginnen?",
                             isPresented: $showNewChatConfirm,
@@ -189,6 +205,20 @@ struct ChatView: View {
         .frame(maxWidth: .infinity)
     }
 
+    private func statusBanner(text: String) -> some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.small)
+            Text(text)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.thinMaterial)
+        .frame(maxWidth: .infinity)
+    }
+
     private func trySend() {
         guard sendEnabled else { return }
         let text = input
@@ -205,6 +235,13 @@ struct ChatView: View {
 
     private func stop() {
         chatStore.cancelStreaming()
+    }
+
+    private var ragIndicator: String {
+        if let active = kbStore.activeBase, !active.sources.isEmpty, kbStore.ragEnabled {
+            return "books.vertical.fill"
+        }
+        return "books.vertical"
     }
 }
 

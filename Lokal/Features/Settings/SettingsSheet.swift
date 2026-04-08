@@ -90,6 +90,19 @@ struct SettingsSheet: View {
                     }
                 }
 
+                Section("Erweiterungen") {
+                    NavigationLink {
+                        ConnectionsSettingsView()
+                    } label: {
+                        Label("Verbindungen", systemImage: "link")
+                    }
+                    NavigationLink {
+                        MCPServerListView()
+                    } label: {
+                        Label("MCP-Server", systemImage: "bolt.horizontal")
+                    }
+                }
+
                 Section {
                     NavigationLink {
                         AboutView()

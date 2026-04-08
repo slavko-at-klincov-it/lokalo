@@ -65,6 +65,10 @@ struct MessageBubble: View {
                         }
                     }
                 }
+                if let citations = message.citations, !citations.isEmpty {
+                    CitationRow(citations: citations)
+                        .padding(.top, 2)
+                }
             }
         }
     }

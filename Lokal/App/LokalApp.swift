@@ -10,6 +10,12 @@ struct LokalApp: App {
     @State private var modelStore = ModelStore()
     @State private var downloadManager = DownloadManager()
     @State private var chatStore = ChatStore()
+    @State private var kbStore = KnowledgeBaseStore()
+    @State private var embeddingStore = EmbeddingModelStore()
+    @State private var embeddingDownloader = EmbeddingDownloader()
+    @State private var indexingService = IndexingService()
+    @State private var connectionStore = ConnectionStore()
+    @State private var mcpStore = MCPStore()
 
     var body: some Scene {
         WindowGroup {
@@ -17,6 +23,12 @@ struct LokalApp: App {
                 .environment(modelStore)
                 .environment(downloadManager)
                 .environment(chatStore)
+                .environment(kbStore)
+                .environment(embeddingStore)
+                .environment(embeddingDownloader)
+                .environment(indexingService)
+                .environment(connectionStore)
+                .environment(mcpStore)
                 .preferredColorScheme(nil)
                 .tint(.accentColor)
                 .task {
@@ -24,9 +36,25 @@ struct LokalApp: App {
                     FileLog.write("LokaloApp.task fired")
                     await modelStore.bootstrap()
                     FileLog.write("modelStore bootstrap done, installed=\(modelStore.installedModels.count)")
+                    embeddingStore.bootstrap()
+                    kbStore.bootstrap()
+                    connectionStore.bootstrap()
+                    mcpStore.bootstrap()
                     downloadManager.attach(modelStore: modelStore)
+                    embeddingDownloader.attach(store: embeddingStore)
+                    indexingService.attach(
+                        kbStore: kbStore,
+                        embeddingStore: embeddingStore,
+                        connectionStore: connectionStore
+                    )
                     chatStore.attach(modelStore: modelStore)
+                    chatStore.attach(
+                        kbStore: kbStore,
+                        indexingService: indexingService,
+                        mcpStore: mcpStore
+                    )
                     await downloadManager.resumePending()
+                    await mcpStore.connectAllEnabled()
                     await chatStore.runAutoTestPromptIfPresent()
                 }
         }

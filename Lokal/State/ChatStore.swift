@@ -23,13 +23,26 @@ final class ChatStore {
     var settings: GenerationSettings = .default
     var systemPrompt: String = "You are Lokalo, a friendly on-device AI assistant. Answer concisely and helpfully."
     private(set) var loadState: LoadState = .idle
+    /// Optional banner shown above the chat composer (e.g. "Tool: search_files…").
+    private(set) var statusBanner: String?
 
     private var engine: LlamaEngine?
     private weak var modelStore: ModelStore?
+    private weak var kbStore: KnowledgeBaseStore?
+    private weak var indexingService: IndexingService?
+    private weak var mcpStore: MCPStore?
     private var streamTask: Task<Void, Never>?
 
     func attach(modelStore: ModelStore) {
         self.modelStore = modelStore
+    }
+
+    func attach(kbStore: KnowledgeBaseStore,
+                indexingService: IndexingService,
+                mcpStore: MCPStore) {
+        self.kbStore = kbStore
+        self.indexingService = indexingService
+        self.mcpStore = mcpStore
     }
 
     /// If the app was launched with `-LokalAutoTestPrompt "..."`, fire off
@@ -112,57 +125,169 @@ final class ChatStore {
         }
         FileLog.write("ChatStore.send: trimmed=\(trimmed.count) chars, model=\(active.id)")
 
-        // Append the user turn (no placeholder for the assistant — we render
-        // streamingBuffer separately while isStreaming is true).
         let userMsg = ChatMessage(role: .user, content: trimmed)
         messages.append(userMsg)
         streamingBuffer = ""
         isStreaming = true
+        statusBanner = nil
 
-        // Render the conversation through the chat template (only completed
-        // messages — the user turn we just added is the last one).
-        let prompt = ChatTemplate.render(family: active.chatTemplate,
-                                         system: systemPrompt.isEmpty ? nil : systemPrompt,
-                                         messages: messages)
-        let stops = ChatTemplate.stopStrings(family: active.chatTemplate)
+        let kbStore = self.kbStore
+        let indexingService = self.indexingService
+        let mcpStore = self.mcpStore
+        let activeFamily = active.chatTemplate
+        let baseSystem = systemPrompt
+        let snapshotMessages = messages
+        let queryText = trimmed
 
         streamTask?.cancel()
-        // Run the consume loop OFF MainActor so SwiftUI's rendering can
-        // interleave between chunks. Each chunk hops back to MainActor only
-        // for the state mutation, keeping the runloop free for layout/draw.
         streamTask = Task.detached(priority: .userInitiated) { [engine, weak self] in
-            let t0 = Date()
-            FileLog.write("stream: starting (prompt=\(prompt.count) chars)")
-            let stream = await engine.generate(prompt: prompt, stopStrings: stops)
-            var didError = false
-            var errorMessage = ""
-            var chunkCount = 0
-            do {
-                for try await chunk in stream {
-                    if Task.isCancelled { break }
-                    chunkCount += 1
-                    await MainActor.run {
-                        guard let self else { return }
-                        self.streamingBuffer += chunk
+            // 1) RAG augmentation: retrieve top-K chunks if a knowledge base is active.
+            var citations: [Citation] = []
+            var augmentedSystem = baseSystem
+            if let kbStore = await kbStore,
+               let activeKB = await kbStore.activeBase,
+               await kbStore.ragEnabled,
+               let indexer = await indexingService {
+                do {
+                    let hits = try await indexer.query(queryText, baseID: activeKB.id, topK: 5)
+                    if !hits.isEmpty {
+                        let contextLines = hits.enumerated().map { idx, hit -> String in
+                            let snippet = hit.chunk.text.replacingOccurrences(of: "\n", with: " ")
+                            return "[\(idx + 1)] (\(hit.chunk.documentName)) \(snippet)"
+                        }
+                        let block = contextLines.joined(separator: "\n\n")
+                        augmentedSystem = """
+                        \(baseSystem)
+
+                        Nutze die folgenden Quellen-Auszüge aus den Wissensbasen des Nutzers, wenn sie zur Frage passen. Zitiere sie inline als [1], [2], usw.
+                        \(block)
+                        """
+                        citations = hits.map { hit in
+                            let snippet = hit.chunk.text.count > 320
+                                ? String(hit.chunk.text.prefix(320)) + "…"
+                                : hit.chunk.text
+                            return Citation(
+                                sourceName: hit.chunk.documentName,
+                                snippet: snippet,
+                                pageIndex: hit.chunk.pageIndex,
+                                documentPath: hit.chunk.documentPath
+                            )
+                        }
+                    }
+                } catch {
+                    FileLog.write("RAG retrieval failed: \(error.localizedDescription)")
+                }
+            }
+
+            // 2) MCP tools advertisement (best-effort).
+            var toolsBySignature: [String: MCPClientService.DiscoveredTool] = [:]
+            if let mcpStore = await mcpStore {
+                let tools = await mcpStore.discoveredTools()
+                if !tools.isEmpty {
+                    let descriptions = tools.map { "\($0.toolName): \($0.description)" }
+                    let toolsSection = ToolCallParser.systemPromptSection(toolDescriptions: descriptions)
+                    augmentedSystem += toolsSection
+                    for tool in tools {
+                        toolsBySignature[tool.toolName] = tool
                     }
                 }
-            } catch {
-                didError = true
-                errorMessage = error.localizedDescription
-                FileLog.write("stream: ERROR \(errorMessage)")
             }
-            let ms = Int(Date().timeIntervalSince(t0) * 1000)
-            FileLog.write("stream: done in \(ms) ms, \(chunkCount) chunks")
+
+            var rollingMessages = snapshotMessages
+            var lastAssistantText = ""
+            var didError = false
+            var errorMessage = ""
+
+            // 3) Inference loop with optional MCP tool-call hops.
+            for _ in 0..<5 {
+                if Task.isCancelled { break }
+                let prompt = ChatTemplate.render(
+                    family: activeFamily,
+                    system: augmentedSystem.isEmpty ? nil : augmentedSystem,
+                    messages: rollingMessages
+                )
+                let stops = ChatTemplate.stopStrings(family: activeFamily)
+
+                let stream = await engine.generate(prompt: prompt, stopStrings: stops)
+                var assistantText = ""
+                do {
+                    for try await chunk in stream {
+                        if Task.isCancelled { break }
+                        assistantText += chunk
+                        let snapshot = assistantText
+                        await MainActor.run {
+                            guard let self else { return }
+                            self.streamingBuffer = snapshot
+                        }
+                    }
+                } catch {
+                    didError = true
+                    errorMessage = error.localizedDescription
+                    FileLog.write("stream: ERROR \(errorMessage)")
+                    break
+                }
+                lastAssistantText = assistantText
+
+                // Tool-call detection.
+                if let parsed = ToolCallParser.parse(assistantText),
+                   let tool = toolsBySignature[parsed.name],
+                   let mcpStore = await mcpStore {
+                    let serverID = tool.serverID
+                    let toolName = tool.toolName
+                    let label = "Tool: \(toolName) wird ausgeführt …"
+                    await MainActor.run {
+                        self?.statusBanner = label
+                    }
+                    let mcpArguments = MCPClientService.convert(arguments: parsed.arguments)
+                    do {
+                        let result = try await mcpStore.service.callTool(
+                            serverID: serverID,
+                            name: toolName,
+                            arguments: mcpArguments
+                        )
+                        // Append the assistant tool-call as is, then a synthetic user message
+                        // containing the tool result. Continue the loop.
+                        rollingMessages.append(ChatMessage(role: .assistant, content: assistantText))
+                        rollingMessages.append(ChatMessage(
+                            role: .user,
+                            content: "Tool result for \(toolName):\n\(result)"
+                        ))
+                        await MainActor.run {
+                            self?.streamingBuffer = ""
+                            self?.statusBanner = nil
+                        }
+                        continue
+                    } catch {
+                        let errMsg = "Tool-Call fehlgeschlagen: \(error.localizedDescription)"
+                        rollingMessages.append(ChatMessage(role: .assistant, content: assistantText))
+                        rollingMessages.append(ChatMessage(role: .user, content: errMsg))
+                        await MainActor.run {
+                            self?.streamingBuffer = ""
+                            self?.statusBanner = nil
+                        }
+                        continue
+                    }
+                }
+
+                // No tool call → done.
+                break
+            }
+
             await MainActor.run {
                 guard let self else { return }
                 let finalContent = didError
                     ? "[Fehler: \(errorMessage)]"
-                    : self.streamingBuffer
+                    : (lastAssistantText.isEmpty ? self.streamingBuffer : lastAssistantText)
                 if !finalContent.isEmpty {
-                    self.messages.append(ChatMessage(role: .assistant, content: finalContent))
+                    self.messages.append(ChatMessage(
+                        role: .assistant,
+                        content: finalContent,
+                        citations: citations.isEmpty ? nil : citations
+                    ))
                 }
                 self.streamingBuffer = ""
                 self.isStreaming = false
+                self.statusBanner = nil
                 FileLog.write("stream: state cleared, messages=\(self.messages.count)")
             }
         }

@@ -44,16 +44,17 @@ actor MCPClientService {
         // Disconnect any existing client for this id first.
         await disconnect(serverID: serverID)
         let client = Client(name: "Lokalo", version: "1.0.0")
-        let configuration = HTTPClientTransport.Configuration(
-            endpoint: endpoint,
-            streaming: true
-        )
-        var transport = HTTPClientTransport(configuration: configuration)
-        if let bearerToken {
-            transport.urlSession.configuration.httpAdditionalHeaders = [
-                "Authorization": "Bearer \(bearerToken)"
-            ]
+        let modifier: (URLRequest) -> URLRequest = { req in
+            guard let bearerToken else { return req }
+            var mutated = req
+            mutated.setValue("Bearer \(bearerToken)", forHTTPHeaderField: "Authorization")
+            return mutated
         }
+        let transport = HTTPClientTransport(
+            endpoint: endpoint,
+            streaming: true,
+            requestModifier: modifier
+        )
         try await client.connect(transport: transport)
         clients[serverID] = client
         do {
@@ -101,8 +102,8 @@ actor MCPClientService {
             throw ServiceError.notConnected
         }
         let (content, isError) = try await client.callTool(name: name, arguments: arguments)
-        let textPieces: [String] = content.compactMap { piece in
-            if case .text(let t) = piece { return t }
+        let textPieces: [String] = content.compactMap { piece -> String? in
+            if case .text(let text, _, _) = piece { return text }
             return nil
         }
         let combined = textPieces.joined(separator: "\n")

@@ -12,11 +12,18 @@ struct ChatMessage: Identifiable, Hashable, Codable, Sendable {
     let role: Role
     var content: String
     let createdAt: Date
+    /// Source chunks the assistant referenced when generating this answer.
+    var citations: [Citation]?
 
-    init(id: UUID = UUID(), role: Role, content: String, createdAt: Date = .now) {
+    init(id: UUID = UUID(),
+         role: Role,
+         content: String,
+         createdAt: Date = .now,
+         citations: [Citation]? = nil) {
         self.id = id
         self.role = role
         self.content = content
         self.createdAt = createdAt
+        self.citations = citations
     }
 }

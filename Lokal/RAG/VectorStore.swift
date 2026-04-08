@@ -15,6 +15,7 @@ actor VectorStore {
         case dimensionMismatch(expected: Int, got: Int)
         case persistFailed(String)
         case loadFailed(String)
+        case createFailed(String)
 
         var errorDescription: String? {
             switch self {
@@ -22,26 +23,33 @@ actor VectorStore {
                 return "Vector dimension mismatch (expected \(e), got \(g))"
             case .persistFailed(let m): return "Vector index save failed: \(m)"
             case .loadFailed(let m):    return "Vector index load failed: \(m)"
+            case .createFailed(let m):  return "Vector index create failed: \(m)"
             }
         }
     }
 
     private let index: USearchIndex
-    let dimensions: UInt32
+    let dimensions: Int
     private let storeURL: URL
+    private var reservedCapacity: UInt32 = 0
 
     init(dimensions: Int, storeURL: URL) throws {
-        self.dimensions = UInt32(dimensions)
+        self.dimensions = dimensions
         self.storeURL = storeURL
 
-        let idx = USearchIndex.make(
-            metric: .cos,
-            dimensions: UInt32(dimensions),
-            connectivity: 16,
-            quantization: .F16
-        )
-        idx.reserve(1024)
-        self.index = idx
+        do {
+            let idx = try USearchIndex.make(
+                metric: .cos,
+                dimensions: UInt32(dimensions),
+                connectivity: 16,
+                quantization: .f16
+            )
+            try idx.reserve(1024)
+            self.reservedCapacity = 1024
+            self.index = idx
+        } catch {
+            throw StoreError.createFailed(error.localizedDescription)
+        }
 
         if FileManager.default.fileExists(atPath: storeURL.path) {
             do {
@@ -53,33 +61,37 @@ actor VectorStore {
     }
 
     /// Number of vectors currently in the index.
-    var count: Int { Int(index.count) }
+    var count: Int {
+        (try? index.count) ?? 0
+    }
 
     func upsert(key: UInt64, embedding: [Float32]) throws {
-        guard embedding.count == Int(dimensions) else {
-            throw StoreError.dimensionMismatch(expected: Int(dimensions), got: embedding.count)
+        guard embedding.count == dimensions else {
+            throw StoreError.dimensionMismatch(expected: dimensions, got: embedding.count)
         }
-        if index.capacity == index.count {
-            index.reserve(UInt32(index.capacity * 2 + 64))
+        let currentCount = (try? index.count) ?? 0
+        if currentCount >= Int(reservedCapacity) {
+            let newCapacity = reservedCapacity * 2 + 64
+            try index.reserve(newCapacity)
+            reservedCapacity = newCapacity
         }
-        index.add(key: key, vector: embedding)
+        try index.add(key: key, vector: embedding)
     }
 
     func remove(key: UInt64) {
-        _ = index.remove(key: key)
+        _ = try? index.remove(key: key)
     }
 
     func search(query: [Float32], topK: Int = 8) throws -> [(key: UInt64, distance: Float32)] {
-        guard query.count == Int(dimensions) else {
-            throw StoreError.dimensionMismatch(expected: Int(dimensions), got: query.count)
+        guard query.count == dimensions else {
+            throw StoreError.dimensionMismatch(expected: dimensions, got: query.count)
         }
-        let result = index.search(vector: query, count: UInt32(topK))
+        let result = try index.search(vector: query, count: topK)
         return zip(result.0, result.1).map { ($0, $1) }
     }
 
     func persist() throws {
         do {
-            // Make sure the parent directory exists.
             try FileManager.default.createDirectory(
                 at: storeURL.deletingLastPathComponent(),
                 withIntermediateDirectories: true
@@ -91,8 +103,6 @@ actor VectorStore {
     }
 
     func resetIndex() {
-        // USearch has no clear-all API; recreate by removing the file and
-        // re-instantiating in the next init() call. Callers should rebuild.
         try? FileManager.default.removeItem(at: storeURL)
     }
 }
