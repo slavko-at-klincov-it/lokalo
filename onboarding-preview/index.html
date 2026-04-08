@@ -176,19 +176,37 @@
 </header>
 
 <main>
-  <div style="margin-bottom: 56px; padding: 32px; border: 1px solid #1c2026; border-radius: 16px; background: linear-gradient(180deg, rgba(27,111,237,0.06), transparent);">
-    <div style="display: flex; align-items: center; gap: 32px; flex-wrap: wrap; justify-content: center;">
-      <div class="phone">
-        <div class="notch"></div>
-        <iframe id="ifMix" src="mix_sternenwort.html"></iframe>
+  <div style="margin-bottom: 56px; padding: 40px 32px; border: 1px solid #1c2026; border-radius: 16px; background: linear-gradient(180deg, rgba(27,111,237,0.06), transparent);">
+    <div style="text-align: center; margin-bottom: 32px;">
+      <div style="font-size: 11px; color: #1b6fed; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">★ Final Onboarding Flow</div>
+      <h2 style="margin: 0 0 8px; font-size: 32px; font-weight: 300; letter-spacing: -0.02em;">Zwei Beats</h2>
+      <p style="color: #7a818c; font-size: 14px; max-width: 640px; margin: 0 auto;">Einmaliger Onboarding-Flow auf erstem App-Start. Beat 1 zeigt das Markenversprechen, Beat 2 die personalisierbaren Einstellungen. Kein Auto-Download — der User wählt sein erstes Modell aktiv aus der Bibliothek.</p>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 40px; justify-items: center; max-width: 760px; margin: 0 auto;">
+      <div class="card">
+        <div class="phone">
+          <div class="notch"></div>
+          <iframe id="ifBeat1" src="beat1_sternenwort.html"></iframe>
+        </div>
+        <div class="label">
+          <div><span class="num">1</span><span class="name">Sternenwort + Versprechen</span></div>
+          <div class="tone">~5 s · Tap/Swipe → Beat 2</div>
+          <p>Konstellation formt sich, Lokalo emerged im Zentrum, darunter die vier Promises („Kein Konto. Keine Cloud. Keine Werbung. Keine Telemetrie.") gestapelt. Unten: pulsierender Hint „Zum Starten wischen →". Click/Tap/Swipe-left → slide-out.</p>
+          <button class="replay-card" onclick="replay('ifBeat1','beat1_sternenwort.html')">↻ Replay</button>
+        </div>
       </div>
-      <div style="flex: 1; min-width: 280px; max-width: 480px;">
-        <div style="font-size: 11px; color: #1b6fed; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin-bottom: 8px;">★ Slavkos Wahl</div>
-        <h2 style="margin: 0 0 8px; font-size: 32px; font-weight: 300; letter-spacing: -0.02em;">Sternenwort</h2>
-        <div style="color: #7a818c; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 16px;">Mix V2 Konstellation × V5 Lichtschalter</div>
-        <p style="color: #ebeef3; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">Punkte driften aus den Rändern, formen während der Bewegung ein Gehirn-Blob. Mitten in der Konstellation erscheinen die drei Worte <em>Lokal.</em> · <em>Privat.</em> · <em>Dein iPhone.</em> nacheinander. Wenn die Brain-Verbindungen komplett sind, emerged der Titel <em>Lokalo</em> aus dem Zentrum. Pulsing Hint, Tap → Weißblitz, Punkte scattern raus.</p>
-        <p style="color: #7a818c; font-size: 13px; margin: 0 0 16px;">~10 s · Tap zum Skip · auto-advance nach 11 s · Cormorant Garamond Light</p>
-        <button class="replay-card" onclick="replay('ifMix','mix_sternenwort.html')">↻ Replay diesen</button>
+
+      <div class="card">
+        <div class="phone">
+          <div class="notch"></div>
+          <iframe id="ifBeat2" src="beat2_einstellungen.html"></iframe>
+        </div>
+        <div class="label">
+          <div><span class="num">2</span><span class="name">Personalisieren</span></div>
+          <div class="tone">~3 s reveal · 4 Optionen + Loslegen</div>
+          <p>Header „Personalisieren · kann später jederzeit geändert werden". Vier Karten mit Toggles: Mikrofon · Benachrichtigungen · Modelle ohne WLAN · Standard-Modell (Qwen 2.5 0.5B). Loslegen-Button schließt das Onboarding.</p>
+          <button class="replay-card" onclick="replay('ifBeat2','beat2_einstellungen.html')">↻ Replay</button>
+        </div>
       </div>
     </div>
   </div>
@@ -276,7 +294,8 @@
   }
   function replayAll() {
     const map = {
-      ifMix: 'mix_sternenwort.html',
+      ifBeat1: 'beat1_sternenwort.html',
+      ifBeat2: 'beat2_einstellungen.html',
       if1: 'v1_atemzug.html',
       if2: 'v2_konstellation.html',
       if3: 'v3_brief.html',

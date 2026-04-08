@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Beat 1 — Sternenwort + Versprechen</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: linear-gradient(180deg, #050a18 0%, #0a1028 50%, #02050f 100%);
+    font-family: -apple-system, system-ui, sans-serif;
+  }
+  body {
+    position: relative;
+    cursor: pointer;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+
+  /* "Lokalo" — sits at the empty center of the brain blob (cy = 50% - 110px,
+     pulled up to make room for the stacked promises below). Same font/weight
+     as the promises and the original V2 caption. */
+  .title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: calc(50% - 110px);
+    text-align: center;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 46px;
+    font-weight: 200;
+    letter-spacing: 0.4px;
+    line-height: 1;
+    opacity: 0;
+    transform: translateY(-50%);
+    transition: opacity 1.0s ease-in;
+    pointer-events: none;
+  }
+  .title.visible { opacity: 1; }
+
+  /* Stacked promises below the constellation. Same style as Beat 2. */
+  .promises {
+    position: absolute;
+    bottom: 124px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    pointer-events: none;
+  }
+  .promise {
+    font-size: 17px;
+    font-weight: 300;
+    letter-spacing: 0.2px;
+    color: rgba(255, 255, 255, 0.80);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+  }
+  .promise.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Swipe hint at the very bottom. Subtle, pulsing, with a slow rightward
+     drift to telegraph the gesture. */
+  .swipeHint {
+    position: absolute;
+    bottom: 56px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+    opacity: 0;
+    pointer-events: none;
+  }
+  /* Two animations chained: a smooth one-shot fade-in (forwards holds the
+     final 0.85 opacity), then a gentle breath that starts AFTER the entry
+     finishes and dips only to 0.55 — never to "almost gone". */
+  .swipeHint.visible {
+    animation:
+      hintIn   1.0s ease-out forwards,
+      hintBreath 4.0s ease-in-out 1.0s infinite;
+  }
+  .swipeHint .arrow {
+    display: inline-block;
+    margin-left: 6px;
+    animation: arrowDrift 2.6s ease-in-out infinite;
+  }
+  @keyframes hintIn {
+    from { opacity: 0; }
+    to   { opacity: 0.85; }
+  }
+  @keyframes hintBreath {
+    0%, 100% { opacity: 0.85; }
+    50%      { opacity: 0.55; }
+  }
+  @keyframes arrowDrift {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(6px); }
+  }
+
+  .root {
+    width: 100%;
+    height: 100%;
+    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  }
+  .root.swiped {
+    opacity: 0;
+    transform: translateX(-40%);
+  }
+</style>
+</head>
+<body>
+<div class="root" id="root">
+  <canvas id="canvas"></canvas>
+  <div class="title" id="title">Lokalo</div>
+
+  <div class="promises">
+    <div class="promise" id="p1">Kein Konto.</div>
+    <div class="promise" id="p2">Keine Cloud.</div>
+    <div class="promise" id="p3">Keine Werbung.</div>
+    <div class="promise" id="p4">Keine Telemetrie.</div>
+  </div>
+
+  <div class="swipeHint" id="hint">
+    Zum Starten wischen<span class="arrow">→</span>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const root = document.getElementById('root');
+const title = document.getElementById('title');
+
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  ctx.scale(dpr, dpr);
+}
+resize();
+window.addEventListener('resize', resize);
+
+const W = window.innerWidth;
+const H = window.innerHeight;
+// Constellation pulled up by 110px so the promises fit below
+const cx = W / 2;
+const cy = H / 2 - 110;
+
+const particles = [];
+for (let i = 0; i < 38; i++) {
+  const edge = i % 4;
+  let sx, sy;
+  if (edge === 0)      { sx = -50;     sy = Math.random() * H; }
+  else if (edge === 1) { sx = W + 50;  sy = Math.random() * H; }
+  else if (edge === 2) { sx = Math.random() * W; sy = -50; }
+  else                 { sx = Math.random() * W; sy = H + 50; }
+
+  const angle = (i / 38) * Math.PI * 2;
+  const r = 70 + Math.random() * 65;
+  const tx = cx + Math.cos(angle) * r;
+  const ty = cy + Math.sin(angle) * r * 0.85;
+
+  particles.push({
+    x: sx, y: sy, tx, ty,
+    size: 1.6 + Math.random() * 2,
+    opacity: 0,
+    targetOpacity: 0.55 + Math.random() * 0.45,
+    startTime: Math.random() * 0.5,
+    gatherDelay: 1.1 + Math.random() * 0.4
+  });
+}
+
+let t0 = performance.now();
+function loop(now) {
+  const t = (now - t0) / 1000;
+  ctx.clearRect(0, 0, W, H);
+  for (const p of particles) {
+    if (t > p.startTime) p.opacity += (p.targetOpacity - p.opacity) * 0.06;
+    if (t > p.gatherDelay) {
+      p.x += (p.tx - p.x) * 0.05;
+      p.y += (p.ty - p.y) * 0.05;
+    }
+  }
+  if (t > 1.0) {
+    for (let i = 0; i < particles.length; i++) {
+      for (let j = i + 1; j < particles.length; j++) {
+        const a = particles[i], b = particles[j];
+        const dx = a.x - b.x, dy = a.y - b.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < 95) {
+          const alpha = (1 - d/95) * 0.18 * Math.min(a.opacity, b.opacity);
+          ctx.strokeStyle = `rgba(255,255,255,${alpha})`;
+          ctx.lineWidth = 0.6;
+          ctx.beginPath();
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+        }
+      }
+    }
+  }
+  for (const p of particles) {
+    ctx.fillStyle = `rgba(255,255,255,${p.opacity})`;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  if (t < 18) requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+// Choreography:
+//   2.5 s — Lokalo title fades in (constellation has formed)
+//   3.0 s — first promise fades in
+//   3.4 s — second
+//   3.8 s — third
+//   4.2 s — fourth
+//   5.0 s — swipe hint fades in and starts pulsing
+setTimeout(() => title.classList.add('visible'), 2500);
+setTimeout(() => document.getElementById('p1').classList.add('visible'), 3000);
+setTimeout(() => document.getElementById('p2').classList.add('visible'), 3400);
+setTimeout(() => document.getElementById('p3').classList.add('visible'), 3800);
+setTimeout(() => document.getElementById('p4').classList.add('visible'), 4200);
+setTimeout(() => document.getElementById('hint').classList.add('visible'), 5000);
+
+// Tap or swipe to advance — slide left + fade out.
+function advance() {
+  root.classList.add('swiped');
+}
+
+// Touch swipe (real device)
+let touchStartX = null;
+document.body.addEventListener('touchstart', (e) => {
+  touchStartX = e.touches[0].clientX;
+}, { passive: true });
+document.body.addEventListener('touchend', (e) => {
+  if (touchStartX === null) return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  if (dx < -30) advance();
+  touchStartX = null;
+}, { passive: true });
+
+// Mouse click (browser preview)
+document.body.addEventListener('click', advance);
+</script>
+</body>
+</html>

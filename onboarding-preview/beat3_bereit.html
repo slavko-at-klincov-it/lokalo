@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Beat 3 — Bereit</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: linear-gradient(180deg, #050a18 0%, #0a1028 50%, #02050f 100%);
+    font-family: -apple-system, system-ui, sans-serif;
+    color: rgba(255,255,255,0.86);
+  }
+  body { position: relative; }
+  canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .root {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 28px;
+    transition: opacity 0.6s ease-out;
+  }
+
+  .greeting {
+    font-size: 34px;
+    font-weight: 300;
+    letter-spacing: 0.3px;
+    margin-bottom: 12px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.9s ease-out, transform 0.9s ease-out;
+  }
+  .greeting.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .subline {
+    font-size: 15px;
+    font-weight: 300;
+    line-height: 1.55;
+    text-align: center;
+    color: rgba(255,255,255,0.62);
+    max-width: 280px;
+    margin-bottom: 36px;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.9s ease-out 0.2s, transform 0.9s ease-out 0.2s;
+  }
+  .subline.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .recommendation {
+    width: 100%;
+    max-width: 280px;
+    padding: 18px 22px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 14px;
+    margin-bottom: 32px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.9s ease-out 0.5s, transform 0.9s ease-out 0.5s;
+  }
+  .recommendation.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .rec-tag {
+    font-size: 10px;
+    letter-spacing: 1.6px;
+    text-transform: uppercase;
+    color: rgba(120,170,255,0.82);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  .rec-name {
+    font-size: 18px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.94);
+    margin-bottom: 4px;
+  }
+  .rec-meta {
+    font-size: 12px;
+    color: rgba(255,255,255,0.50);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    letter-spacing: 0.2px;
+  }
+
+  .button {
+    display: inline-block;
+    padding: 14px 32px;
+    border: 1px solid rgba(255,255,255,0.30);
+    border-radius: 100px;
+    font-size: 14px;
+    font-weight: 400;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.92);
+    background: transparent;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity 0.8s ease-out 0.8s,
+      transform 0.8s ease-out 0.8s,
+      background 0.2s ease,
+      border-color 0.2s ease;
+  }
+  .button.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .button:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.55);
+  }
+
+  .footnote {
+    margin-top: 20px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.36);
+    letter-spacing: 0.3px;
+    text-align: center;
+    max-width: 260px;
+    line-height: 1.5;
+    opacity: 0;
+    transition: opacity 0.6s ease-out 1.4s;
+  }
+  .footnote.visible { opacity: 1; }
+</style>
+</head>
+<body>
+<canvas id="bgCanvas"></canvas>
+<div class="root" id="root">
+  <div class="greeting" id="greeting">Bereit.</div>
+  <div class="subline" id="subline">
+    Wähle dein erstes Modell wann du willst —<br>
+    alle laufen offline auf deinem iPhone.
+  </div>
+  <div class="recommendation" id="recommendation">
+    <div class="rec-tag">Empfohlen für dein iPhone</div>
+    <div class="rec-name">Llama 3.2 3B Instruct</div>
+    <div class="rec-meta">~1.9 GB · schnell · DE / EN</div>
+  </div>
+  <button class="button" id="btn">Bibliothek öffnen</button>
+  <div class="footnote" id="footnote">
+    Modelle laden nur über WLAN, sofern nicht anders eingestellt.
+  </div>
+</div>
+
+<script>
+// Sparse drifting particles — same vibe as Beat 2
+const canvas = document.getElementById('bgCanvas');
+const ctx = canvas.getContext('2d');
+function resize() {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  ctx.scale(dpr, dpr);
+}
+resize();
+const W = window.innerWidth, H = window.innerHeight;
+
+const dots = Array.from({length: 18}, () => ({
+  x: Math.random() * W,
+  y: Math.random() * H,
+  vx: (Math.random() - 0.5) * 0.12,
+  vy: (Math.random() - 0.5) * 0.12,
+  r: 1 + Math.random() * 1.4,
+  opacity: 0.10 + Math.random() * 0.20
+}));
+
+function loop() {
+  ctx.clearRect(0, 0, W, H);
+  for (const d of dots) {
+    d.x += d.vx;
+    d.y += d.vy;
+    if (d.x < 0 || d.x > W) d.vx *= -1;
+    if (d.y < 0 || d.y > H) d.vy *= -1;
+    ctx.fillStyle = `rgba(255,255,255,${d.opacity})`;
+    ctx.beginPath();
+    ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+
+// Sequential reveal
+const els = ['greeting', 'subline', 'recommendation', 'btn', 'footnote'];
+els.forEach(id => {
+  setTimeout(() => document.getElementById(id).classList.add('visible'), 200);
+});
+
+const btn = document.getElementById('btn');
+const root = document.getElementById('root');
+btn.addEventListener('click', () => {
+  root.style.opacity = '0';
+});
+</script>
+</body>
+</html>
