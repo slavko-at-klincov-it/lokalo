@@ -10,6 +10,21 @@ struct SettingsSheet: View {
     @Environment(ModelStore.self) private var modelStore
     @Environment(\.dismiss) private var dismiss
 
+    // Onboarding preferences — bound here so the user can re-edit any choice
+    // they made in the first-launch flow. Same UserDefaults keys as Beat 2.
+    @AppStorage(OnboardingPreferences.microphoneIntentKey)
+    private var microphoneIntent: Bool = false
+    @AppStorage(OnboardingPreferences.notificationsIntentKey)
+    private var notificationsIntent: Bool = false
+    @AppStorage(OnboardingPreferences.cellularDownloadsAllowedKey)
+    private var cellularAllowed: Bool = false
+    @AppStorage(OnboardingPreferences.preferredFirstModelIDKey)
+    private var preferredFirstModelID: String = OnboardingPreferences.defaultFirstModelID
+    @AppStorage(OnboardingPreferences.hasCompletedKey)
+    private var hasCompletedOnboarding: Bool = false
+
+    @State private var showOnboardingResetConfirm = false
+
     var body: some View {
         @Bindable var chat = chatStore
         NavigationStack {
@@ -90,6 +105,62 @@ struct SettingsSheet: View {
                     }
                 }
 
+                Section("Personalisierung") {
+                    Toggle(isOn: $microphoneIntent) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Mikrofon")
+                                Text("Sprich mit dem Modell, statt zu tippen.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "mic")
+                        }
+                    }
+                    Toggle(isOn: $notificationsIntent) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Benachrichtigungen")
+                                Text("Lokalo meldet sich, wenn eine längere Antwort fertig ist.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "bell")
+                        }
+                    }
+                    Toggle(isOn: $cellularAllowed) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Modelle ohne WLAN laden")
+                                Text("Standardmäßig nur über WLAN — Modelle sind oft 1–4 GB.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "antenna.radiowaves.left.and.right")
+                        }
+                    }
+                    Picker(selection: $preferredFirstModelID) {
+                        ForEach(ModelCatalog.phoneCompatible.sorted { $0.sizeBytes < $1.sizeBytes }) { entry in
+                            Text("\(entry.displayName) · \(String(format: "%.1f GB", entry.sizeGB))")
+                                .tag(entry.id)
+                        }
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Standard-Modell")
+                                Text("Wird beim ersten Start hervorgehoben.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "shippingbox")
+                        }
+                    }
+                }
+
                 Section("Erweiterungen") {
                     NavigationLink {
                         ConnectionsSettingsView()
@@ -114,6 +185,12 @@ struct SettingsSheet: View {
                     } label: {
                         Label("Lizenzen", systemImage: "doc.text")
                     }
+                    Button {
+                        showOnboardingResetConfirm = true
+                    } label: {
+                        Label("Onboarding erneut anzeigen", systemImage: "sparkles")
+                    }
+                    .tint(.primary)
                 }
 
                 Section {
@@ -133,6 +210,17 @@ struct SettingsSheet: View {
                         dismiss()
                     }
                 }
+            }
+            .confirmationDialog("Onboarding erneut anzeigen?",
+                                isPresented: $showOnboardingResetConfirm,
+                                titleVisibility: .visible) {
+                Button("Anzeigen") {
+                    hasCompletedOnboarding = false
+                    dismiss()
+                }
+                Button("Abbrechen", role: .cancel) { }
+            } message: {
+                Text("Beim nächsten Schließen der Einstellungen wird wieder die Begrüßung angezeigt.")
             }
         }
     }

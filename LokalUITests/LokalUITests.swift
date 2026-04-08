@@ -16,7 +16,10 @@ final class LokalUITests: XCTestCase {
 
     private func launchApp(extraArgs: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = extraArgs
+        // Skip the first-launch onboarding flow so the existing chat-flow
+        // assertions still work. UserDefaults reads "-key value" launch args
+        // automatically at process start.
+        app.launchArguments = ["-Lokal.hasCompletedOnboarding", "1"] + extraArgs
         app.launch()
         return app
     }

@@ -48,7 +48,19 @@ struct LibraryView: View {
     @State private var query: String = ""
     @AppStorage("Lokal.libraryGrouping") private var groupingRaw = ModelGrouping.publisher.rawValue
     @AppStorage("Lokal.librarySort") private var sortRaw = ModelSort.paramsAsc.rawValue
+    /// User's first-launch model choice. The matching catalog row gets a
+    /// "Empfohlen"-tag and is sorted to the top of its section. Once any
+    /// model is installed the highlight disappears (see `showsPreferredHighlight`).
+    @AppStorage(OnboardingPreferences.preferredFirstModelIDKey)
+    private var preferredFirstModelID: String = OnboardingPreferences.defaultFirstModelID
     @State private var pendingDownload: ModelEntry?
+
+    /// Whether to highlight the preferred-first-model row. Only shown while
+    /// no model is installed yet — once the user has anything on disk the
+    /// recommendation has served its purpose and shouldn't keep nagging.
+    private var showsPreferredHighlight: Bool {
+        modelStore.installedModels.isEmpty
+    }
     @State private var pendingDelete: ModelEntry?
 
     private var grouping: ModelGrouping {
@@ -188,6 +200,7 @@ struct LibraryView: View {
             return byPublisher
                 .map { CatalogSection(title: $0.key, items: $0.value) }
                 .sorted { $0.title < $1.title }
+                .map { promotePreferredToTop($0) }
 
         case .sizeBucket:
             var buckets: [(String, [ModelEntry])] = [
@@ -211,7 +224,24 @@ struct LibraryView: View {
             return buckets
                 .filter { !$0.1.isEmpty }
                 .map { CatalogSection(title: $0.0, items: $0.1) }
+                .map { promotePreferredToTop($0) }
         }
+    }
+
+    /// If the preferred first model is in the section AND the highlight is
+    /// active, lift it to the front of the items list. Reordering only —
+    /// the row's visual badge is added in `suggestedRow`.
+    private func promotePreferredToTop(_ section: CatalogSection) -> CatalogSection {
+        guard showsPreferredHighlight,
+              let idx = section.items.firstIndex(where: { $0.id == preferredFirstModelID }),
+              idx > 0
+        else {
+            return section
+        }
+        var items = section.items
+        let preferred = items.remove(at: idx)
+        items.insert(preferred, at: 0)
+        return CatalogSection(title: section.title, items: items)
     }
 
     private var sortComparator: (ModelEntry, ModelEntry) -> Bool {
@@ -334,15 +364,21 @@ struct LibraryView: View {
     }
 
     private func suggestedRow(_ entry: ModelEntry) -> some View {
-        Button {
+        let isPreferred = showsPreferredHighlight && entry.id == preferredFirstModelID
+        return Button {
             pendingDownload = entry
         } label: {
             HStack(spacing: 12) {
                 publisherIcon(entry.publisher)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.displayName)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
+                    HStack(spacing: 6) {
+                        Text(entry.displayName)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        if isPreferred {
+                            preferredBadge
+                        }
+                    }
                     Text(entry.summary)
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -362,6 +398,26 @@ struct LibraryView: View {
             }
             .contentShape(Rectangle())
         }
+        .listRowBackground(
+            isPreferred
+                ? Color.accentColor.opacity(0.06)
+                : nil
+        )
+    }
+
+    private var preferredBadge: some View {
+        Text("EMPFOHLEN")
+            .font(.system(size: 9, weight: .bold))
+            .tracking(0.6)
+            .foregroundStyle(Color.accentColor)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(
+                Capsule().fill(Color.accentColor.opacity(0.16))
+            )
+            .overlay(
+                Capsule().stroke(Color.accentColor.opacity(0.35), lineWidth: 0.5)
+            )
     }
 
     private var localBadge: some View {

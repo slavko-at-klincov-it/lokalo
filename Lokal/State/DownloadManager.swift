@@ -6,7 +6,16 @@
 //
 
 import Foundation
+import Network
 import Observation
+
+/// Coarse classification of the active network path. The download manager
+/// uses this to honor the user's "Modelle ohne WLAN laden" preference.
+enum NetworkType: Equatable {
+    case wifi
+    case cellular
+    case none
+}
 
 @MainActor
 @Observable
@@ -42,19 +51,69 @@ final class DownloadTask: Identifiable {
 @Observable
 final class DownloadManager {
     private(set) var tasks: [String: DownloadTask] = [:]
+    /// Latest classification of the device's network path. Updated by an
+    /// `NWPathMonitor` running on a background queue. Read by the UI to
+    /// decide whether to warn the user about cellular downloads.
+    private(set) var currentNetworkType: NetworkType = .wifi
     private weak var modelStore: ModelStore?
     private var sessionDelegate: DelegateBox?
     private var session: URLSession?
     private var taskMap: [Int: String] = [:]      // urlSessionTask.taskIdentifier → modelID
     private var lastSampleTime: [String: Date] = [:]
     private var lastSampleBytes: [String: Int64] = [:]
+    /// `NWPathMonitor` is thread-safe (it can be cancelled from any queue),
+    /// so we mark it `nonisolated(unsafe)` to allow access from `deinit`.
+    nonisolated(unsafe) private var pathMonitor: NWPathMonitor?
+    private let pathMonitorQueue = DispatchQueue(label: "lokalo.downloadmanager.pathmonitor")
 
     init() {
         setupSession()
+        startPathMonitoring()
+    }
+
+    deinit {
+        pathMonitor?.cancel()
     }
 
     func attach(modelStore: ModelStore) {
         self.modelStore = modelStore
+    }
+
+    /// True when the user is currently on cellular AND has not opted in to
+    /// large downloads over mobile in onboarding / settings. UI should warn
+    /// the user before calling `startDownload(for:)` (or pass `force: true`).
+    var cellularDownloadsBlocked: Bool {
+        let allowed = UserDefaults.standard.bool(forKey: OnboardingPreferences.cellularDownloadsAllowedKey)
+        return currentNetworkType == .cellular && !allowed
+    }
+
+    /// Same check tied to a specific entry — kept as a separate API so the UI
+    /// reads naturally even though the logic is currently entry-independent.
+    func cellularBlocks(_ entry: ModelEntry) -> Bool {
+        return cellularDownloadsBlocked
+    }
+
+    private func startPathMonitoring() {
+        let monitor = NWPathMonitor()
+        pathMonitor = monitor
+        monitor.pathUpdateHandler = { [weak self] path in
+            let type: NetworkType
+            if path.status == .satisfied {
+                if path.usesInterfaceType(.wifi) || path.usesInterfaceType(.wiredEthernet) {
+                    type = .wifi
+                } else if path.usesInterfaceType(.cellular) {
+                    type = .cellular
+                } else {
+                    type = .wifi
+                }
+            } else {
+                type = .none
+            }
+            Task { @MainActor in
+                self?.currentNetworkType = type
+            }
+        }
+        monitor.start(queue: pathMonitorQueue)
     }
 
     private func setupSession() {
@@ -87,8 +146,16 @@ final class DownloadManager {
 
     // MARK: - Public actions
 
-    func startDownload(for entry: ModelEntry) {
-        if let existing = tasks[entry.id], existing.state == .downloading { return }
+    /// Start (or resume) a download. Honors the cellular preference unless
+    /// `force` is true. Returns false when the call was refused because the
+    /// user is on cellular and hasn't opted in — the UI should react by
+    /// showing a confirmation, then re-call with `force: true`.
+    @discardableResult
+    func startDownload(for entry: ModelEntry, force: Bool = false) -> Bool {
+        if !force && cellularBlocks(entry) {
+            return false
+        }
+        if let existing = tasks[entry.id], existing.state == .downloading { return true }
         try? FileManager.default.createDirectory(at: ModelStore.modelsDirectory(), withIntermediateDirectories: true)
         let task = tasks[entry.id] ?? DownloadTask(entry: entry)
         tasks[entry.id] = task
@@ -109,12 +176,13 @@ final class DownloadManager {
             task.bytesDownloaded = 0
         }
 
-        guard let session else { return }
+        guard let session else { return false }
         let dataTask = session.dataTask(with: request)
         taskMap[dataTask.taskIdentifier] = entry.id
         lastSampleTime[entry.id] = .now
         lastSampleBytes[entry.id] = task.bytesDownloaded
         dataTask.resume()
+        return true
     }
 
     func cancel(_ id: String) {
