@@ -98,7 +98,7 @@ final class EmbeddingDownloader {
             state = .completed
             store?.markInstalled(entry.id)
         } catch {
-            state = .failed(error.localizedDescription)
+            state = .failed(error.lokaloMessage)
             try? FileManager.default.removeItem(at: partial)
         }
     }

@@ -59,7 +59,7 @@ final class ConnectionStore {
                 try await signInOneDrive()
             }
         } catch {
-            lastError = error.localizedDescription
+            lastError = error.lokaloMessage
         }
     }
 

@@ -215,7 +215,7 @@ struct GitHubRepoBrowser: View {
             repos = list
             loading = false
         } catch {
-            errorText = error.localizedDescription
+            errorText = error.lokaloMessage
             loading = false
         }
     }
@@ -302,7 +302,7 @@ struct GoogleDriveBrowser: View {
             children = try await GoogleDriveOAuth.listFiles(token: token, parentID: path.last?.id)
             loading = false
         } catch {
-            errorText = error.localizedDescription
+            errorText = error.lokaloMessage
             loading = false
         }
     }
@@ -388,7 +388,7 @@ struct OneDriveBrowser: View {
             children = try await OneDriveOAuth.listChildren(token: token, itemID: path.last?.id)
             loading = false
         } catch {
-            errorText = error.localizedDescription
+            errorText = error.lokaloMessage
             loading = false
         }
     }

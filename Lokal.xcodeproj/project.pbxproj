@@ -65,6 +65,7 @@
 		C6B6A2AD3569665D5CB93B96 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89AC14F3C0CBD86C081BDDAB /* Message.swift */; };
 		C8D5D31B148E9A6EF5A1A7D9 /* ConnectionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6198FDD73B6A6FF14E57E5 /* ConnectionStore.swift */; };
 		C8D6B261C0E705BAAC853958 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 41A7F6B4DC0D071CF7392915 /* MetalKit.framework */; };
+		CF236D8D5ECEE5E36B6C5813 /* LokaloError.swift in Sources */ = {isa = PBXBuildFile; fileRef = BFE18CB352E8806A9C97C2BB /* LokaloError.swift */; };
 		D00ECA0FBABBFBB75C20C0F4 /* ModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0EEBF16DD761833CE071C3C /* ModelStore.swift */; };
 		D1A871D4995E4CF7C1CB81DF /* USearch in Frameworks */ = {isa = PBXBuildFile; productRef = DEE699E2BFB5F8235589350B /* USearch */; };
 		D207BF88F31818E8B6D6D243 /* ChunkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C27C18DB64D574D1F764A779 /* ChunkStore.swift */; };
@@ -169,6 +170,7 @@
 		BA95DAD5902062C863199CAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		BA9E5582FFBD6F2A8F448FB6 /* V5_Lichtschalter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = V5_Lichtschalter.swift; sourceTree = "<group>"; };
 		BF46CCA3A3C641B139A60DF2 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
+		BFE18CB352E8806A9C97C2BB /* LokaloError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LokaloError.swift; sourceTree = "<group>"; };
 		C0B484C2A8D1F657BFFE6914 /* OneDriveOAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OneDriveOAuth.swift; sourceTree = "<group>"; };
 		C27C18DB64D574D1F764A779 /* ChunkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChunkStore.swift; sourceTree = "<group>"; };
 		C9A563F8262C0EA848592717 /* EmbeddingModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddingModelStore.swift; sourceTree = "<group>"; };
@@ -433,6 +435,7 @@
 			children = (
 				96C5EA71ECB9F18CE8B27D51 /* ChatTemplate.swift */,
 				D50F802DF06392C4F0C055DA /* EmbeddingModel.swift */,
+				BFE18CB352E8806A9C97C2BB /* LokaloError.swift */,
 				89AC14F3C0CBD86C081BDDAB /* Message.swift */,
 				2C875722D9E4B5F713822E94 /* ModelCatalog.swift */,
 				AB8448B535222318CAD778D7 /* ModelEntry.swift */,
@@ -616,6 +619,7 @@
 				E3CBE37899E355D1D4FB1E41 /* LlamaEmbeddingEngine.swift in Sources */,
 				561EFC0C8490C3AC2037B649 /* LlamaEngine.swift in Sources */,
 				C41446C39E970FA2EDF67D74 /* LokalApp.swift in Sources */,
+				CF236D8D5ECEE5E36B6C5813 /* LokaloError.swift in Sources */,
 				ADAECF6980D956FD23C8BD57 /* MCPClientService.swift in Sources */,
 				B3940701FA40CD51F54C005B /* MCPServerListView.swift in Sources */,
 				BE774DAB753BE639D4138C90 /* MCPStore.swift in Sources */,

@@ -161,7 +161,7 @@ final class ChatStore {
             self.loadState = .ready(modelID: target.id)
         } catch {
             self.engine = nil
-            self.loadState = .error(error.localizedDescription)
+            self.loadState = .error(error.lokaloMessage)
         }
     }
 
@@ -259,7 +259,7 @@ final class ChatStore {
                         }
                     }
                 } catch {
-                    FileLog.write("RAG retrieval failed: \(error.localizedDescription)")
+                    FileLog.write("RAG retrieval failed: \(error.lokaloMessage)")
                 }
             }
 
@@ -306,7 +306,7 @@ final class ChatStore {
                     }
                 } catch {
                     didError = true
-                    errorMessage = error.localizedDescription
+                    errorMessage = error.lokaloMessage
                     FileLog.write("stream: ERROR \(errorMessage)")
                     break
                 }
@@ -342,7 +342,7 @@ final class ChatStore {
                         }
                         continue
                     } catch {
-                        let errMsg = "Tool-Call fehlgeschlagen: \(error.localizedDescription)"
+                        let errMsg = "Tool-Call fehlgeschlagen: \(error.lokaloMessage)"
                         rollingMessages.append(ChatMessage(role: .assistant, content: assistantText))
                         rollingMessages.append(ChatMessage(role: .user, content: errMsg))
                         await MainActor.run {

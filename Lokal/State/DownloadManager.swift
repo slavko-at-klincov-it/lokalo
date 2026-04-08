@@ -288,8 +288,8 @@ final class DownloadManager {
                 if task.state != .paused { task.state = .paused }
                 return
             }
-            task.state = .failed(error.localizedDescription)
-            task.error = error.localizedDescription
+            task.state = .failed(error.lokaloMessage)
+            task.error = error.lokaloMessage
             return
         }
 
@@ -305,7 +305,7 @@ final class DownloadManager {
             task.bytesDownloaded = task.bytesTotal
             modelStore?.markInstalled(entry.id)
         } catch {
-            task.state = .failed("Konnte Datei nicht speichern: \(error.localizedDescription)")
+            task.state = .failed("Konnte Datei nicht speichern: \(error.lokaloMessage)")
             task.error = task.state == .failed("") ? "" : "\(error)"
         }
     }

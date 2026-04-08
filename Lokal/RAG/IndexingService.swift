@@ -122,10 +122,10 @@ final class IndexingService {
                 _ = scopedURL
             } catch {
                 await MainActor.run {
-                    self?.lastError = error.localizedDescription
+                    self?.lastError = error.lokaloMessage
                     var failed = source
                     failed.status = .error
-                    failed.statusMessage = error.localizedDescription
+                    failed.statusMessage = error.lokaloMessage
                     self?.kbStore?.update(source: failed)
                     self?.current = nil
                 }
@@ -192,7 +192,7 @@ final class IndexingService {
             } catch {
                 // Skip individual file errors; keep indexing.
                 #if DEBUG
-                print("Index error for \(url.lastPathComponent): \(error.localizedDescription)")
+                print("Index error for \(url.lastPathComponent): \(error.lokaloMessage)")
                 #endif
             }
             processed += 1
@@ -250,7 +250,7 @@ final class IndexingService {
                 }
             } catch {
                 #if DEBUG
-                print("Query error for source \(source.id): \(error.localizedDescription)")
+                print("Query error for source \(source.id): \(error.lokaloMessage)")
                 #endif
             }
         }

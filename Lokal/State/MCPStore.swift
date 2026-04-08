@@ -106,8 +106,8 @@ final class MCPStore {
             )
             connectionStatus[config.id] = .connected
         } catch {
-            connectionStatus[config.id] = .error(error.localizedDescription)
-            lastError[config.id] = error.localizedDescription
+            connectionStatus[config.id] = .error(error.lokaloMessage)
+            lastError[config.id] = error.lokaloMessage
         }
     }
 
