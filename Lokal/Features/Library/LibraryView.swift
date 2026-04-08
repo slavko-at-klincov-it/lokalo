@@ -366,7 +366,7 @@ struct LibraryView: View {
     private func suggestedRow(_ entry: ModelEntry) -> some View {
         let isPreferred = showsPreferredHighlight && entry.id == preferredFirstModelID
         return Button {
-            pendingDownload = entry
+            path.append(Route.modelDetail(entry.id))
         } label: {
             HStack(spacing: 12) {
                 publisherIcon(entry.publisher)
@@ -387,14 +387,19 @@ struct LibraryView: View {
                         Text(entry.effectiveParametersLabel)
                         Text("·")
                         Text(String(format: "%.1f GB", entry.sizeGB))
+                        if isPreferred {
+                            Text("·")
+                            Text("Tippe zum Laden")
+                                .foregroundStyle(Color.accentColor)
+                        }
                     }
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
                 }
                 Spacer()
-                Image(systemName: "arrow.down.circle")
-                    .font(.title3)
-                    .foregroundStyle(Color.accentColor)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tertiary)
             }
             .contentShape(Rectangle())
         }
