@@ -188,7 +188,7 @@ struct GitHubRepoBrowser: View {
                         } label: {
                             VStack(alignment: .leading) {
                                 Text(repo.full_name).font(.subheadline.weight(.medium))
-                                Text(repo.private ? "private" : "public")
+                                Text(repo.private ? "privat" : "öffentlich")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

@@ -265,10 +265,10 @@ private struct Beat2ModelCard: View {
                     .foregroundStyle(Color(red: 150.0/255, green: 190.0/255, blue: 255.0/255))
             }
             VStack(alignment: .leading, spacing: 2) {
-                Text("Standard-Modell")
+                Text("Empfohlenes Modell")
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.white.opacity(0.94))
-                Text("Wird beim ersten Start vorgeschlagen.")
+                Text("Wird beim ersten Start hervorgehoben.")
                     .font(.system(size: 11.5, weight: .light))
                     .foregroundStyle(.white.opacity(0.55))
                     .lineLimit(2)

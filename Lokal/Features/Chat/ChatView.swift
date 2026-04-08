@@ -38,6 +38,8 @@ struct ChatView: View {
                     Image(systemName: "square.and.pencil")
                 }
                 .disabled(chatStore.messages.isEmpty)
+                .accessibilityLabel("Neue Unterhaltung")
+                .accessibilityHint("Verwirft den aktuellen Chat-Verlauf.")
             }
             ToolbarItem(placement: .principal) {
                 Button {
@@ -52,6 +54,9 @@ struct ChatView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                .accessibilityLabel("Modell wechseln")
+                .accessibilityValue(modelStore.activeModel?.displayName ?? "Kein Modell")
+                .accessibilityHint("Öffnet die Modell-Auswahl.")
             }
             ToolbarItem(placement: .topBarTrailing) {
                 HStack(spacing: 16) {
@@ -60,11 +65,14 @@ struct ChatView: View {
                     } label: {
                         Image(systemName: ragIndicator)
                     }
+                    .accessibilityLabel("Wissensbasen")
+                    .accessibilityHint("Verwaltet Quellen und RAG-Einstellungen.")
                     Button {
                         showSettings = true
                     } label: {
                         Image(systemName: "gearshape")
                     }
+                    .accessibilityLabel("Einstellungen")
                 }
             }
         }
@@ -182,6 +190,7 @@ struct ChatView: View {
             }
             .disabled(!sendEnabled && !chatStore.isStreaming)
             .animation(.easeInOut(duration: 0.15), value: sendEnabled)
+            .accessibilityLabel(chatStore.isStreaming ? "Antwort stoppen" : "Nachricht senden")
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)

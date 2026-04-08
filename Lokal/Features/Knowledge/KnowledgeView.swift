@@ -42,7 +42,7 @@ struct KnowledgeView: View {
                 if let active = kbStore.activeBase {
                     Section("\(active.name)") {
                         if active.sources.isEmpty {
-                            Text("Noch keine Quellen. Tippe + um eine hinzuzufügen.")
+                            Text("Noch keine Quellen. Tippe auf +, um eine hinzuzufügen.")
                                 .font(.callout)
                                 .foregroundStyle(.secondary)
                         } else {

@@ -29,45 +29,6 @@ struct SettingsSheet: View {
         @Bindable var chat = chatStore
         NavigationStack {
             Form {
-                Section("Sampling") {
-                    sliderRow(label: "Temperatur",
-                              value: Binding(
-                                get: { Double(chat.settings.temperature) },
-                                set: { chat.settings.temperature = Float($0) }),
-                              range: 0.0...2.0,
-                              format: "%.2f")
-                    sliderRow(label: "Top-p",
-                              value: Binding(
-                                get: { Double(chat.settings.topP) },
-                                set: { chat.settings.topP = Float($0) }),
-                              range: 0.05...1.0,
-                              format: "%.2f")
-                    sliderRow(label: "Min-p",
-                              value: Binding(
-                                get: { Double(chat.settings.minP) },
-                                set: { chat.settings.minP = Float($0) }),
-                              range: 0.0...0.5,
-                              format: "%.2f")
-                    Stepper(value: Binding(
-                        get: { chat.settings.maxNewTokens },
-                        set: { chat.settings.maxNewTokens = $0 }),
-                            in: 32...2048, step: 32) {
-                        HStack {
-                            Text("Max. Token")
-                            Spacer()
-                            Text("\(chat.settings.maxNewTokens)")
-                                .foregroundStyle(.secondary)
-                                .monospacedDigit()
-                        }
-                    }
-                }
-
-                Section("System Prompt") {
-                    TextEditor(text: $chat.systemPrompt)
-                        .frame(minHeight: 96)
-                        .font(.callout)
-                }
-
                 if let active = modelStore.activeModel {
                     Section("Aktives Modell") {
                         HStack {
@@ -150,7 +111,7 @@ struct SettingsSheet: View {
                     } label: {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text("Standard-Modell")
+                                Text("Empfohlenes Modell")
                                 Text("Wird beim ersten Start hervorgehoben.")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
@@ -171,6 +132,49 @@ struct SettingsSheet: View {
                         MCPServerListView()
                     } label: {
                         Label("MCP-Server", systemImage: "bolt.horizontal")
+                    }
+                }
+
+                Section("Erweitert") {
+                    sliderRow(label: "Temperatur",
+                              value: Binding(
+                                get: { Double(chat.settings.temperature) },
+                                set: { chat.settings.temperature = Float($0) }),
+                              range: 0.0...2.0,
+                              format: "%.2f")
+                    sliderRow(label: "Top-p",
+                              value: Binding(
+                                get: { Double(chat.settings.topP) },
+                                set: { chat.settings.topP = Float($0) }),
+                              range: 0.05...1.0,
+                              format: "%.2f")
+                    sliderRow(label: "Min-p",
+                              value: Binding(
+                                get: { Double(chat.settings.minP) },
+                                set: { chat.settings.minP = Float($0) }),
+                              range: 0.0...0.5,
+                              format: "%.2f")
+                    Stepper(value: Binding(
+                        get: { chat.settings.maxNewTokens },
+                        set: { chat.settings.maxNewTokens = $0 }),
+                            in: 32...2048, step: 32) {
+                        HStack {
+                            Text("Max. Token")
+                            Spacer()
+                            Text("\(chat.settings.maxNewTokens)")
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
+                    NavigationLink {
+                        Form {
+                            TextEditor(text: $chat.systemPrompt)
+                                .frame(minHeight: 200)
+                                .font(.callout)
+                        }
+                        .navigationTitle("System Prompt")
+                    } label: {
+                        Label("System Prompt", systemImage: "text.bubble")
                     }
                 }
 
