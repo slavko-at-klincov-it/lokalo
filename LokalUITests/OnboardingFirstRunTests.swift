@@ -28,7 +28,7 @@ final class OnboardingFirstRunTests: XCTestCase {
         let app = launchOnboarding()
         let promise = app.staticTexts["Läuft auf dem Gerät."]
         XCTAssertTrue(promise.waitForExistence(timeout: 10), "Beat 1 promise not visible")
-        XCTAssertTrue(app.staticTexts["Kein Lokalo-Backend."].exists)
+        XCTAssertTrue(app.staticTexts["Kein Cloud-Backend."].exists)
         XCTAssertTrue(app.staticTexts["Keine Werbung."].exists)
         XCTAssertTrue(app.staticTexts["Keine Telemetrie."].exists)
     }

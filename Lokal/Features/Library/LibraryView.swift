@@ -102,9 +102,14 @@ struct LibraryView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle("Bibliothek")
+        .lokaloThemedBackground()
+        .navigationTitle("Modelle")
         .navigationBarTitleDisplayMode(.large)
-        .searchable(text: $query, prompt: "Modelle durchsuchen")
+        .searchable(
+            text: $query,
+            placement: .navigationBarDrawer(displayMode: .always),
+            prompt: "Modelle durchsuchen"
+        )
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {

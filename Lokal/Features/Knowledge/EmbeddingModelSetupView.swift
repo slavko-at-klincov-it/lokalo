@@ -42,6 +42,7 @@ struct EmbeddingModelSetupView: View {
                 }
             }
         }
+        .lokaloThemedBackground()
         .navigationTitle("Embedding-Modell")
         .navigationBarTitleDisplayMode(.inline)
     }

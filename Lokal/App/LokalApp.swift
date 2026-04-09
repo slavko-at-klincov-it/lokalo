@@ -61,19 +61,59 @@ struct LokalApp: App {
     @AppStorage(OnboardingPreferences.hasCompletedKey)
     private var hasCompletedOnboarding: Bool = false
 
+    /// User-selected appearance mode. Stored as a raw string so it can
+    /// survive a schema change to `AppearanceMode`. Changes to this
+    /// value instantly re-render the whole app with the new color
+    /// scheme via the `.preferredColorScheme(...)` modifier below.
+    @AppStorage(OnboardingPreferences.appearanceModeKey)
+    private var appearanceModeRaw: String = OnboardingPreferences.defaultAppearanceMode.rawValue
+
+    private var currentAppearanceMode: AppearanceMode {
+        AppearanceMode(rawValue: appearanceModeRaw) ?? .dark
+    }
+
     var body: some Scene {
         WindowGroup {
             ZStack {
                 if hasCompletedOnboarding {
                     RootView()
-                        .transition(.opacity)
+                        // Emerges from a clearly smaller (88%) state
+                        // while crossfading in. The depth cue reads
+                        // as "product stepping forward towards you".
+                        // Scale is intentionally pronounced — 6% was
+                        // too subtle to read as animation.
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.88, anchor: .center)
+                                .combined(with: .opacity),
+                            removal: .identity
+                        ))
                 } else {
                     OnboardingFlow {
-                        withAnimation(.easeInOut(duration: 0.6)) {
+                        // `.spring(response:dampingFraction:)` is the
+                        // *bounded* spring — it settles exactly on
+                        // target, which is what transitions need.
+                        // `.interpolatingSpring` is unbounded and can
+                        // leave transitions feeling instant because
+                        // the target state latches immediately.
+                        //
+                        // response: 0.85 s period → transitions read
+                        // as a deliberate event, not a jump-cut.
+                        // dampingFraction: 0.88 → no bounce, just a
+                        // confident settle.
+                        withAnimation(.spring(response: 0.85, dampingFraction: 0.88)) {
                             hasCompletedOnboarding = true
                         }
                     }
-                    .transition(.opacity)
+                    // Recedes into the background (scale 1.0 → 0.88)
+                    // while fading out. Source-recedes + destination-
+                    // emerges = "onboarding stepping back so the
+                    // product can step forward". Both scales match
+                    // on purpose so the motions interlock.
+                    .transition(.asymmetric(
+                        insertion: .identity,
+                        removal: .scale(scale: 0.88, anchor: .center)
+                            .combined(with: .opacity)
+                    ))
                 }
             }
             .environment(modelStore)
@@ -86,7 +126,7 @@ struct LokalApp: App {
             .environment(connectionStore)
             .environment(mcpStore)
             .environment(remoteCatalogService)
-            .preferredColorScheme(nil)
+            .preferredColorScheme(currentAppearanceMode.colorScheme)
             .tint(.accentColor)
             .task {
                 // The dependency graph is wired by `init`. This task only

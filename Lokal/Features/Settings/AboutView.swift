@@ -58,6 +58,7 @@ struct AboutView: View {
                 Spacer(minLength: 24)
             }
         }
+        .lokaloThemedBackground()
         .navigationTitle("Über")
         .navigationBarTitleDisplayMode(.inline)
     }

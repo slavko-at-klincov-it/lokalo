@@ -76,6 +76,7 @@ struct LicensesView: View {
             .padding(.vertical, 6)
         }
         .listStyle(.insetGrouped)
+        .lokaloThemedBackground()
         .navigationTitle("Lizenzen")
         .navigationBarTitleDisplayMode(.inline)
     }

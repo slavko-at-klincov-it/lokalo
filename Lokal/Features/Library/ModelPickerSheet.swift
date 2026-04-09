@@ -77,6 +77,7 @@ struct ModelPickerSheet: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .lokaloThemedBackground()
             .navigationTitle("Modell wählen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

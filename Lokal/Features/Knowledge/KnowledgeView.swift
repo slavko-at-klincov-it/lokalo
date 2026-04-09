@@ -94,6 +94,7 @@ struct KnowledgeView: View {
                     }
                 }
             }
+            .lokaloThemedBackground()
             .navigationTitle("Wissen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

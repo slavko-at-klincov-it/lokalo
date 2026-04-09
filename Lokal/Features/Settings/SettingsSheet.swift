@@ -6,6 +6,17 @@
 import SwiftUI
 
 struct SettingsSheet: View {
+    /// When true, the view renders its own "Fertig" toolbar button
+    /// that dismisses the enclosing sheet. When false, the view is
+    /// assumed to live inside a tab (the `MainTabBar` navigation
+    /// container) and the dismiss button is hidden — a tab doesn't
+    /// need a done button because tabs don't close.
+    let showsDismiss: Bool
+
+    init(showsDismiss: Bool = true) {
+        self.showsDismiss = showsDismiss
+    }
+
     @Environment(ChatStore.self) private var chatStore
     @Environment(ModelStore.self) private var modelStore
     @Environment(\.dismiss) private var dismiss
@@ -18,6 +29,8 @@ struct SettingsSheet: View {
     private var preferredFirstModelID: String = OnboardingPreferences.defaultFirstModelID
     @AppStorage(OnboardingPreferences.hasCompletedKey)
     private var hasCompletedOnboarding: Bool = false
+    @AppStorage(OnboardingPreferences.appearanceModeKey)
+    private var appearanceModeRaw: String = OnboardingPreferences.defaultAppearanceMode.rawValue
 
     @State private var showOnboardingResetConfirm = false
 
@@ -91,6 +104,23 @@ struct SettingsSheet: View {
                             }
                         } icon: {
                             Image(systemName: "shippingbox")
+                        }
+                    }
+
+                    Picker(selection: $appearanceModeRaw) {
+                        ForEach(AppearanceMode.allCases) { mode in
+                            Text(mode.label).tag(mode.rawValue)
+                        }
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Erscheinungsbild")
+                                Text("Wählt den Farbmodus für die gesamte App.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "circle.lefthalf.filled")
                         }
                     }
                 }
@@ -177,14 +207,17 @@ struct SettingsSheet: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                 }
             }
+            .lokaloThemedBackground()
             .navigationTitle("Einstellungen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Fertig") {
-                        chatStore.settings = chat.settings
-                        Task { await chatStore.ensureEngineLoaded() }
-                        dismiss()
+                if showsDismiss {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("Fertig") {
+                            chatStore.settings = chat.settings
+                            Task { await chatStore.ensureEngineLoaded() }
+                            dismiss()
+                        }
                     }
                 }
             }

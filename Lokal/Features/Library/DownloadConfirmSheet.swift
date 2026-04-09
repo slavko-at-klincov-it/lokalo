@@ -78,6 +78,7 @@ struct DownloadConfirmSheet: View {
                     }
                 }
             }
+            .lokaloThemedBackground()
             .navigationTitle("Modell laden")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

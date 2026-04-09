@@ -40,6 +40,7 @@
 		6C481564890BB778C1A101EF /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59D9F2F7ED6B66368D89EC57 /* RootView.swift */; };
 		6D2056239C0A7224F56BD95B /* CitationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB001BA1487BB35B006E006F /* CitationView.swift */; };
 		6EDDB4C29BDF76DF3AB0A757 /* ChatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CC044E3766456594DD98269 /* ChatStore.swift */; };
+		6F987D09F7DCF9062C130CD1 /* DarkBlueGradient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5B4F9C9CEC9DAE8F7BC022F /* DarkBlueGradient.swift */; };
 		714C03BF3E82692685C8F2BD /* Beat1Animator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 280B09DA4CF9B3BE004DD436 /* Beat1Animator.swift */; };
 		730076DA9433F7E92F3F36A1 /* EmbeddingDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2423A596782F8D57D62E8C21 /* EmbeddingDownloader.swift */; };
 		779D6A50242011E767AB7F87 /* GoogleDriveOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BCB2BCD745037ADC1E14511 /* GoogleDriveOAuth.swift */; };
@@ -64,6 +65,7 @@
 		C04D8DC92D81B9B833A00767 /* ModelCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C875722D9E4B5F713822E94 /* ModelCatalog.swift */; };
 		C3B743967295C7DC59A771F3 /* Beat2EinstellungenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFB5C317CA373E3ABFFFCE8C /* Beat2EinstellungenView.swift */; };
 		C41446C39E970FA2EDF67D74 /* LokalApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F0ABDB42D91B77EE4E69E68 /* LokalApp.swift */; };
+		C6977C07234B761471D62521 /* MainTabBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 049646463D9E28DF4513ED40 /* MainTabBar.swift */; };
 		C6B6A2AD3569665D5CB93B96 /* Message.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89AC14F3C0CBD86C081BDDAB /* Message.swift */; };
 		C8D5D31B148E9A6EF5A1A7D9 /* ConnectionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6198FDD73B6A6FF14E57E5 /* ConnectionStore.swift */; };
 		C8D6B261C0E705BAAC853958 /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 41A7F6B4DC0D071CF7392915 /* MetalKit.framework */; };
@@ -118,6 +120,7 @@
 
 /* Begin PBXFileReference section */
 		000A9BBE10AFA045FE88B646 /* GitHubOAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubOAuth.swift; sourceTree = "<group>"; };
+		049646463D9E28DF4513ED40 /* MainTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabBar.swift; sourceTree = "<group>"; };
 		060B120B87BC77565BF326EA /* OAuthTokenVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthTokenVault.swift; sourceTree = "<group>"; };
 		0AFAF9A49728A152966F58E2 /* Beat1SternenwortView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Beat1SternenwortView.swift; sourceTree = "<group>"; };
 		0D943D4FC0E438403382E146 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
@@ -166,6 +169,7 @@
 		9AE8A9E933DA43A200CA1F85 /* Chunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chunker.swift; sourceTree = "<group>"; };
 		9E18F8B7D3BD399B93F5796B /* ModelSwitchOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelSwitchOverlay.swift; sourceTree = "<group>"; };
 		A3A0AD7E65BF899CC685E2E1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A5B4F9C9CEC9DAE8F7BC022F /* DarkBlueGradient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DarkBlueGradient.swift; sourceTree = "<group>"; };
 		AB0F64379364B70C5306778C /* ModelLicense.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLicense.swift; sourceTree = "<group>"; };
 		AB8448B535222318CAD778D7 /* ModelEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelEntry.swift; sourceTree = "<group>"; };
 		B5415EF58A37CFA08013E41C /* Lokal.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Lokal.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -250,6 +254,14 @@
 			path = Library;
 			sourceTree = "<group>";
 		};
+		2B665B01CCF1FE7ACFD00116 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				A5B4F9C9CEC9DAE8F7BC022F /* DarkBlueGradient.swift */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
 		52825B26D8981D2B5B70DD0E /* State */ = {
 			isa = PBXGroup;
 			children = (
@@ -270,6 +282,7 @@
 			isa = PBXGroup;
 			children = (
 				D8ED11E94230DE9E1713E9A1 /* App */,
+				2B665B01CCF1FE7ACFD00116 /* Core */,
 				CF5BE8360B9AA97493AF306B /* Engine */,
 				FFA65D339EE1B628C0AACEAC /* Features */,
 				CCE4657FEABFD08891948D95 /* MCP */,
@@ -284,6 +297,14 @@
 				0D943D4FC0E438403382E146 /* PrivacyInfo.xcprivacy */,
 			);
 			path = Lokal;
+			sourceTree = "<group>";
+		};
+		72FEE07191318D43990E2D85 /* Navigation */ = {
+			isa = PBXGroup;
+			children = (
+				049646463D9E28DF4513ED40 /* MainTabBar.swift */,
+			);
+			path = Navigation;
 			sourceTree = "<group>";
 		};
 		740ECC8ED690AB72BCE0722F /* Chat */ = {
@@ -452,6 +473,7 @@
 				740ECC8ED690AB72BCE0722F /* Chat */,
 				8B6DD6DCC7976DDEFFDAA928 /* Knowledge */,
 				24399FB8A2D41C0FA3D3C7F6 /* Library */,
+				72FEE07191318D43990E2D85 /* Navigation */,
 				E069D6C8779DE219D6FD9407 /* Onboarding */,
 				188211223143FDF4E6EE1B36 /* Root */,
 				D0E4A1D9F2732419A4BF0373 /* Settings */,
@@ -605,6 +627,7 @@
 				6D2056239C0A7224F56BD95B /* CitationView.swift in Sources */,
 				C8D5D31B148E9A6EF5A1A7D9 /* ConnectionStore.swift in Sources */,
 				0695BA95228327ED6B9CF4F2 /* ConnectionsSettingsView.swift in Sources */,
+				6F987D09F7DCF9062C130CD1 /* DarkBlueGradient.swift in Sources */,
 				D579FFA4628FC000C0980955 /* DocumentExtractor.swift in Sources */,
 				3D547C3E4E72D797571F20DC /* DownloadConfirmSheet.swift in Sources */,
 				D26EB2054BF0A96959A2131E /* DownloadManager.swift in Sources */,
@@ -628,6 +651,7 @@
 				ADAECF6980D956FD23C8BD57 /* MCPClientService.swift in Sources */,
 				B3940701FA40CD51F54C005B /* MCPServerListView.swift in Sources */,
 				BE774DAB753BE639D4138C90 /* MCPStore.swift in Sources */,
+				C6977C07234B761471D62521 /* MainTabBar.swift in Sources */,
 				C6B6A2AD3569665D5CB93B96 /* Message.swift in Sources */,
 				5692990516831566E9FBFC59 /* MessageBubble.swift in Sources */,
 				C04D8DC92D81B9B833A00767 /* ModelCatalog.swift in Sources */,

@@ -64,6 +64,7 @@ struct AddSourceSheet: View {
                     }
                 }
             }
+            .lokaloThemedBackground()
             .navigationTitle("Quelle hinzufügen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -196,6 +197,7 @@ struct GitHubRepoBrowser: View {
                     }
                 }
             }
+            .lokaloThemedBackground()
             .navigationTitle("Repository wählen")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -271,6 +273,7 @@ struct GoogleDriveBrowser: View {
                     }
                 }
             }
+            .lokaloThemedBackground()
             .navigationTitle(path.last?.name ?? "Drive Root")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -357,6 +360,7 @@ struct OneDriveBrowser: View {
                     }
                 }
             }
+            .lokaloThemedBackground()
             .navigationTitle(path.last?.name ?? "OneDrive Root")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -27,6 +27,7 @@ struct ModelDetailView: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
         }
+        .lokaloThemedBackground()
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .confirmationDialog("Modell löschen?",

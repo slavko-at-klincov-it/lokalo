@@ -2,42 +2,74 @@
 //  RootView.swift
 //  Lokal
 //
+//  Top-level container after onboarding completes. Hosts four tabs
+//  (Chat, Modelle, Wissen, Einstellungen) switched via the custom
+//  `MainTabBar` floating pill. Each tab owns its own NavigationStack
+//  (or reuses the internal one inside the tab's root view, in the
+//  case of Knowledge and Settings) so back-stack state is preserved
+//  independently when switching tabs.
+//
+//  The floating tab bar is installed via `.safeAreaInset(edge:)` so
+//  content above it (scroll views, forms, chat message lists) never
+//  underflows the bar — the tab bar becomes part of the content's
+//  safe area and pushes content up cleanly.
+//
+//  Cross-tab crossfade: the content ZStack animates between branches
+//  via `.transition(.opacity)` with a short `.easeInOut`, so tabs
+//  never appear to "jump". Active tab state + cross fade share the
+//  same animation block, so the tab-bar visual feedback and the
+//  content swap feel like one gesture.
+//
 
 import SwiftUI
 
 struct RootView: View {
     @Environment(ModelStore.self) private var modelStore
     @Environment(ChatStore.self) private var chatStore
-    @State private var path = NavigationPath()
 
-    /// Set when the user finished onboarding and picked a preferred first
-    /// model. Used as a one-shot to push that model's detail view on top
-    /// of LibraryView so the next action ("Herunterladen") is unmistakable.
+    @State private var selectedTab: MainTab = .chat
+
+    /// One navigation path per tab. SwiftUI re-uses the same
+    /// NavigationStack instance per tab branch, so pushed views
+    /// remain on the stack when the user jumps to another tab
+    /// and back.
+    @State private var chatPath = NavigationPath()
+    @State private var modelsPath = NavigationPath()
+
     @AppStorage(OnboardingPreferences.preferredFirstModelIDKey)
     private var preferredFirstModelID: String = OnboardingPreferences.defaultFirstModelID
     @AppStorage(OnboardingPreferences.hasCompletedKey)
     private var hasCompletedOnboarding: Bool = false
     @State private var didShowPreferredFirstModel = false
 
+    /// Soft taptic for tab changes — same style as the paging
+    /// commit and Loslegen impact. `prepare()` in `.task` avoids
+    /// cold-start latency on the first tap.
+    private let tabHaptic = UIImpactFeedbackGenerator(style: .soft)
+
+    @Environment(\.colorScheme) private var colorScheme
+
     var body: some View {
-        NavigationStack(path: $path) {
-            Group {
-                if modelStore.hasInstalledModels {
-                    ChatView(path: $path)
-                } else {
-                    LibraryView(path: $path)
-                }
+        ZStack {
+            // Dark-mode base layer: the Lokalo gradient sits behind
+            // the tab content, so transparent child views (ChatView
+            // message list, ScrollView-backed detail pages) inherit
+            // the dark-blue aesthetic for free. In light mode this
+            // is a no-op and the tab content's native iOS background
+            // shows through.
+            if colorScheme == .dark {
+                DarkBlueGradient()
             }
-            .navigationDestination(for: Route.self) { route in
-                switch route {
-                case .library:
-                    LibraryView(path: $path)
-                case .modelDetail(let id):
-                    if let entry = ModelCatalog.entry(id: id) {
-                        ModelDetailView(entry: entry, path: $path)
-                    } else {
-                        Text("Modell nicht gefunden")
-                    }
+
+            tabContent
+                .transition(.opacity)
+                .id(selectedTab)
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            MainTabBar(selectedTab: $selectedTab) { newTab in
+                tabHaptic.impactOccurred(intensity: 0.55)
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+                    selectedTab = newTab
                 }
             }
         }
@@ -45,12 +77,14 @@ struct RootView: View {
             await chatStore.ensureEngineLoaded()
         }
         .task {
-            // Wait for `LokalApp.task` to finish `modelStore.bootstrap()`
-            // before deciding whether to auto-push the preferred-model
-            // detail view. Without this delay we'd race the bootstrap and
-            // always see "no models" on first launch even when one is
-            // installed.
-            try? await Task.sleep(nanoseconds: 600_000_000)
+            tabHaptic.prepare()
+            // Wait long enough for (a) `modelStore.bootstrap()` to
+            // finish and (b) the onboarding → RootView scale+fade
+            // spring to settle, before pushing into the preferred
+            // model detail. Pushing mid-transition causes a visible
+            // collision between the LokalApp transition and the
+            // NavigationStack push.
+            try? await Task.sleep(nanoseconds: 950_000_000)
             presentPreferredFirstModelIfNeeded()
         }
         .onChange(of: hasCompletedOnboarding) { _, _ in
@@ -58,11 +92,72 @@ struct RootView: View {
         }
     }
 
-    /// One-shot: right after the user finishes onboarding, if they picked a
-    /// preferred first model and they don't have any model installed yet,
-    /// push that model's detail view so they see the "Herunterladen" button
-    /// immediately instead of landing in an empty library wondering what
-    /// to do next. The flag prevents re-pushing on every render.
+    // MARK: - Tab content
+
+    @ViewBuilder
+    private var tabContent: some View {
+        switch selectedTab {
+        case .chat:
+            NavigationStack(path: $chatPath) {
+                Group {
+                    if modelStore.hasInstalledModels {
+                        ChatView(path: $chatPath)
+                    } else {
+                        ChatEmptyState(onGoToModels: {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+                                selectedTab = .models
+                            }
+                        })
+                    }
+                }
+                .navigationDestination(for: Route.self) { route in
+                    destination(for: route, path: $chatPath)
+                }
+            }
+
+        case .models:
+            NavigationStack(path: $modelsPath) {
+                LibraryView(path: $modelsPath)
+                    .navigationDestination(for: Route.self) { route in
+                        destination(for: route, path: $modelsPath)
+                    }
+            }
+
+        case .knowledge:
+            // `KnowledgeView` provides its own NavigationStack, so
+            // we drop it in as-is — nested NavigationStacks cause
+            // layout bugs in SwiftUI 17.
+            KnowledgeView()
+
+        case .settings:
+            // `SettingsSheet` also has its own NavigationStack;
+            // passing `showsDismiss: false` hides the "Fertig"
+            // button that only makes sense when presented as a sheet.
+            SettingsSheet(showsDismiss: false)
+        }
+    }
+
+    @ViewBuilder
+    private func destination(for route: Route, path: Binding<NavigationPath>) -> some View {
+        switch route {
+        case .library:
+            LibraryView(path: path)
+        case .modelDetail(let id):
+            if let entry = ModelCatalog.entry(id: id) {
+                ModelDetailView(entry: entry, path: path)
+            } else {
+                Text("Modell nicht gefunden")
+            }
+        }
+    }
+
+    // MARK: - Preferred-first-model one-shot
+
+    /// Right after the user finishes onboarding, if they picked a
+    /// preferred first model and don't have any model installed yet,
+    /// jump to the Modelle tab and push the detail view so they see
+    /// the "Herunterladen" button immediately. The flag prevents
+    /// re-pushing on every render.
     private func presentPreferredFirstModelIfNeeded() {
         guard hasCompletedOnboarding,
               !didShowPreferredFirstModel,
@@ -72,11 +167,64 @@ struct RootView: View {
             return
         }
         didShowPreferredFirstModel = true
-        path.append(Route.modelDetail(preferredFirstModelID))
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+            selectedTab = .models
+        }
+        modelsPath.append(Route.modelDetail(preferredFirstModelID))
     }
 }
 
 enum Route: Hashable {
     case library
     case modelDetail(String)
+}
+
+/// Empty state shown in the Chat tab when no model is installed.
+/// Gently nudges the user toward the Modelle tab where they can
+/// pick and download one. The `RootView` ZStack already draws the
+/// `DarkBlueGradient` behind us in dark mode, so this view stays
+/// transparent and the gradient shows through. In light mode the
+/// view simply sits on the default iOS background.
+private struct ChatEmptyState: View {
+    let onGoToModels: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        ZStack {
+            VStack(spacing: 20) {
+                Image(systemName: "bubble.left.and.bubble.right")
+                    .font(.system(size: 52, weight: .ultraLight))
+                    .foregroundStyle(Color.primary.opacity(0.55))
+
+                VStack(spacing: 6) {
+                    Text("Noch kein Modell")
+                        .font(.system(size: 22, weight: .light))
+                        .foregroundStyle(Color.primary.opacity(0.92))
+                        .tracking(0.3)
+                    Text("Wechsle zu Modelle und lade dir\neinen lokalen Assistenten aufs Gerät.")
+                        .font(.system(size: 13, weight: .light))
+                        .foregroundStyle(Color.primary.opacity(0.55))
+                        .multilineTextAlignment(.center)
+                        .tracking(0.15)
+                }
+
+                Button {
+                    onGoToModels()
+                } label: {
+                    Text("Zu Modelle")
+                        .font(.system(size: 12, weight: .medium))
+                        .tracking(1.6)
+                        .textCase(.uppercase)
+                        .foregroundStyle(Color.primary.opacity(0.92))
+                        .padding(.horizontal, 34)
+                        .padding(.vertical, 12)
+                        .background(
+                            Capsule().stroke(Color.primary.opacity(0.30), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 8)
+            }
+        }
+    }
 }

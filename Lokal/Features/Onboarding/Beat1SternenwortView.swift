@@ -30,7 +30,7 @@ struct Beat1SternenwortView: View {
     @State private var p3Visible = false
     @State private var p4Visible = false
     @State private var hintVisible = false
-    @State private var swiped = false
+    @State private var didAdvance = false
 
     var body: some View {
         ZStack {
@@ -40,18 +40,11 @@ struct Beat1SternenwortView: View {
             bottomStack
         }
         .ignoresSafeArea()
-        .opacity(swiped ? 0 : 1)
-        .offset(x: swiped ? -120 : 0)
-        .animation(.easeOut(duration: 0.55), value: swiped)
         .contentShape(Rectangle())
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 24)
-                .onEnded { value in
-                    if value.translation.width < -28 {
-                        advance()
-                    }
-                }
-        )
+        // Horizontal swipes are handled by `OnboardingFlow`'s
+        // interactive paging gesture, which tracks the finger 1:1
+        // across both beats. This view only keeps the tap-to-advance
+        // affordance for users who don't feel like dragging.
         .onTapGesture { advance() }
         .onAppear { runChoreography() }
     }
@@ -59,16 +52,7 @@ struct Beat1SternenwortView: View {
     // MARK: - Layers
 
     private var background: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.02, green: 0.04, blue: 0.10),
-                Color(red: 0.04, green: 0.06, blue: 0.16),
-                Color(red: 0.01, green: 0.02, blue: 0.06)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
+        DarkBlueGradient()
     }
 
     private var constellation: some View {
@@ -125,7 +109,7 @@ struct Beat1SternenwortView: View {
 
             VStack(spacing: 14) {
                 promiseLine("Läuft auf dem Gerät.", visible: p1Visible)
-                promiseLine("Kein Lokalo-Backend.", visible: p2Visible)
+                promiseLine("Kein Cloud-Backend.", visible: p2Visible)
                 promiseLine("Keine Werbung.",       visible: p3Visible)
                 promiseLine("Keine Telemetrie.",    visible: p4Visible)
             }
@@ -163,11 +147,14 @@ struct Beat1SternenwortView: View {
     }
 
     private func advance() {
-        guard !swiped else { return }
-        swiped = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            onAdvance()
-        }
+        guard !didAdvance else { return }
+        didAdvance = true
+        // OnboardingFlow's transition handles the visual slide-out.
+        // Calling immediately (no delay) keeps Beat1 fully rendered
+        // until Beat2 is ready to slide in, so there's never a frame
+        // where neither view is on screen (which was causing the
+        // white-flash between beats).
+        onAdvance()
     }
 }
 

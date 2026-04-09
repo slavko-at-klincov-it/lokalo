@@ -28,4 +28,16 @@ enum OnboardingPreferences {
     /// instead of silently pre-filling a model — the user has to make an
     /// explicit choice (either "Später wählen" or the featured entry).
     static let defaultFirstModelID = ""
+
+    /// Dark / Light appearance preference. Stored as the raw string of
+    /// `AppearanceMode`. `LokalApp` reads this key via `@AppStorage`
+    /// and maps it to `.preferredColorScheme(...)` so every screen
+    /// re-renders the moment the user toggles it in onboarding or
+    /// in the Settings sheet.
+    static let appearanceModeKey = "Lokal.onboarding.appearanceMode"
+
+    /// Default is dark — the dark-blue Lokalo aesthetic is the brand
+    /// and the onboarding is designed around it. A user who explicitly
+    /// prefers light can switch inside Beat 2 or later in Settings.
+    static let defaultAppearanceMode: AppearanceMode = .dark
 }

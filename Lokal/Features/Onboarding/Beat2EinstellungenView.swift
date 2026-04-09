@@ -30,13 +30,39 @@ import AVFoundation
 import UserNotifications
 
 struct Beat2EinstellungenView: View {
+    /// True when this view is the currently-visible onboarding page.
+    /// `OnboardingFlow` passes `currentBeat == 1` here. Because Beat 2
+    /// now lives in a horizontal HStack next to Beat 1 (for interactive
+    /// paging), it's mounted from app launch — its `.onAppear` fires
+    /// while the user is still on Beat 1, so we can't use `onAppear`
+    /// to trigger the card-reveal choreography any more. Instead, the
+    /// view watches `isActive` and starts the staggered fade-in the
+    /// moment the user commits the swipe.
+    let isActive: Bool
     let onComplete: () -> Void
+
+    init(isActive: Bool = true, onComplete: @escaping () -> Void) {
+        self.isActive = isActive
+        self.onComplete = onComplete
+    }
+
+    /// The current system color scheme — read from the environment,
+    /// set by `LokalApp.preferredColorScheme` which itself reflects
+    /// the user's `AppearanceMode` AppStorage preference. Drives
+    /// the adaptive background + particle color in this view.
+    @Environment(\.colorScheme) private var colorScheme
 
     @AppStorage(OnboardingPreferences.cellularDownloadsAllowedKey)
     private var cellularAllowed: Bool = false
 
     @AppStorage(OnboardingPreferences.preferredFirstModelIDKey)
     private var preferredFirstModelID: String = OnboardingPreferences.defaultFirstModelID
+
+    /// Dark / Light theme selection. Bound to the same AppStorage key
+    /// that `LokalApp.preferredColorScheme` reads, so tapping one of
+    /// the two preview capsules re-skins the whole app instantly.
+    @AppStorage(OnboardingPreferences.appearanceModeKey)
+    private var appearanceModeRaw: String = OnboardingPreferences.defaultAppearanceMode.rawValue
 
     /// Live mirrors of the actual system permission states. Seeded on
     /// view-appear via `refreshPermissionStates`, updated after each
@@ -58,7 +84,18 @@ struct Beat2EinstellungenView: View {
     @State private var notificationCardVisible = false
     @State private var cellularCardVisible = false
     @State private var modelCardVisible = false
+    @State private var themeCardVisible = false
     @State private var footerVisible = false
+
+    /// One-shot guard so the staggered reveal only runs once, even if
+    /// `isActive` somehow toggles back-and-forth.
+    @State private var hasChoreographed = false
+
+    /// Soft taptic for the "Loslegen" tap — shares the same style as
+    /// the paging-commit haptic in `OnboardingFlow`, so the whole
+    /// onboarding gesture vocabulary feels like one instrument.
+    /// Prepared in `.onAppear` to avoid cold-start latency.
+    private let loslegenHaptic = UIImpactFeedbackGenerator(style: .soft)
 
     /// The models shown in the picker menu. Contains exactly the first
     /// entry from `models.json.suggested[]` — typically the newest /
@@ -135,26 +172,37 @@ struct Beat2EinstellungenView: View {
                     .opacity(modelCardVisible ? 1 : 0)
                     .offset(y: modelCardVisible ? 0 : 10)
                     .animation(.easeOut(duration: 0.7), value: modelCardVisible)
+
+                    Beat2ThemeCard(
+                        selectedMode: Binding(
+                            get: { AppearanceMode(rawValue: appearanceModeRaw) ?? .dark },
+                            set: { appearanceModeRaw = $0.rawValue }
+                        )
+                    )
+                    .opacity(themeCardVisible ? 1 : 0)
+                    .offset(y: themeCardVisible ? 0 : 10)
+                    .animation(.easeOut(duration: 0.7), value: themeCardVisible)
                 }
                 .padding(.horizontal, 20)
 
                 Spacer()
 
                 Button {
+                    loslegenHaptic.impactOccurred(intensity: 0.8)
                     onComplete()
                 } label: {
                     Text("Loslegen")
                         .font(.system(size: 13, weight: .medium))
                         .tracking(1.6)
                         .textCase(.uppercase)
-                        .foregroundStyle(.white.opacity(0.92))
+                        .foregroundStyle(.primary.opacity(0.92))
                         .padding(.horizontal, 38)
                         .padding(.vertical, 14)
                         .background(
-                            Capsule().stroke(Color.white.opacity(0.30), lineWidth: 1)
+                            Capsule().stroke(Color.primary.opacity(0.30), lineWidth: 1)
                         )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(LoslegenPressStyle())
                 .opacity(footerVisible ? 1 : 0)
                 .offset(y: footerVisible ? 0 : 8)
                 .animation(.easeOut(duration: 0.8), value: footerVisible)
@@ -162,7 +210,22 @@ struct Beat2EinstellungenView: View {
             }
         }
         .ignoresSafeArea()
-        .onAppear { runChoreography() }
+        .onAppear {
+            // Warm up the taptic engine so the first Loslegen impact
+            // fires with zero latency — without this, the first haptic
+            // has a 80-200 ms cold-start lag that feels like a bug.
+            loslegenHaptic.prepare()
+            // Start the staggered card reveal only if we're already
+            // the active page (e.g. SwiftUI previews construct Beat 2
+            // directly with the default `isActive: true`). In the
+            // real onboarding flow, this fires early while the user
+            // is still on Beat 1, so `isActive == false` and the
+            // choreography waits for the `onChange` below.
+            if isActive { runChoreography() }
+        }
+        .onChange(of: isActive) { _, nowActive in
+            if nowActive { runChoreography() }
+        }
         .task { await refreshPermissionStates() }
         .alert("Mikrofon-Zugriff", isPresented: $showMicSettingsAlert) {
             Button("Einstellungen öffnen") { openSystemSettings() }
@@ -279,20 +342,17 @@ struct Beat2EinstellungenView: View {
     // MARK: - Layers
 
     private var background: some View {
-        LinearGradient(
-            colors: [
-                Color(red: 0.02, green: 0.04, blue: 0.10),
-                Color(red: 0.04, green: 0.06, blue: 0.16),
-                Color(red: 0.01, green: 0.02, blue: 0.06)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
+        ThemedOnboardingBackground()
     }
 
     private var ambientParticles: some View {
-        TimelineView(.animation) { context in
+        // Canvas contexts don't resolve SwiftUI semantic colors
+        // (`.primary`, etc.) automatically — we have to pass a
+        // concrete colour. Pick white on dark backgrounds, near-black
+        // on light backgrounds, so the drifting particles stay
+        // visible in both themes.
+        let particleBase: Color = colorScheme == .dark ? .white : Color(white: 0.10)
+        return TimelineView(.animation) { context in
             Canvas { ctx, size in
                 let now = context.date.timeIntervalSinceReferenceDate
                 let count = 14
@@ -305,7 +365,7 @@ struct Beat2EinstellungenView: View {
                     let cx = x * size.width
                     let cy = y * size.height
                     let rect = CGRect(x: cx - r, y: cy - r, width: r * 2, height: r * 2)
-                    ctx.fill(Path(ellipseIn: rect), with: .color(.white.opacity(alpha)))
+                    ctx.fill(Path(ellipseIn: rect), with: .color(particleBase.opacity(alpha)))
                 }
             }
         }
@@ -317,11 +377,11 @@ struct Beat2EinstellungenView: View {
         VStack(spacing: 6) {
             Text("Personalisieren")
                 .font(.system(size: 30, weight: .light))
-                .foregroundStyle(.white.opacity(0.94))
+                .foregroundStyle(.primary.opacity(0.94))
                 .tracking(0.3)
             Text("Kann später jederzeit geändert werden.")
                 .font(.system(size: 13, weight: .light))
-                .foregroundStyle(.white.opacity(0.50))
+                .foregroundStyle(.primary.opacity(0.50))
                 .tracking(0.2)
         }
         .frame(maxWidth: .infinity)
@@ -332,13 +392,22 @@ struct Beat2EinstellungenView: View {
 
     // MARK: - Choreography
 
+    /// Staggered card reveal, fired once when `isActive` first flips
+    /// true. Delays are absolute from t=0 (the moment of commit) —
+    /// the first element (header) appears ~0.3 s in, giving the
+    /// page-slide spring time to mostly settle before the cards
+    /// start fading in, so the two motions don't fight each other
+    /// visually.
     private func runChoreography() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { headerVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { micCardVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.65) { notificationCardVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) { cellularCardVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.05) { modelCardVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.55) { footerVisible = true }
+        guard !hasChoreographed else { return }
+        hasChoreographed = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) { headerVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { micCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { notificationCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) { cellularCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.15) { modelCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.35) { themeCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.85) { footerVisible = true }
     }
 }
 
@@ -356,10 +425,10 @@ private struct Beat2SettingCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.94))
+                    .foregroundStyle(.primary.opacity(0.94))
                 Text(desc)
                     .font(.system(size: 11.5, weight: .light))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(.primary.opacity(0.55))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -374,11 +443,11 @@ private struct Beat2SettingCard: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.04))
+                .fill(Color.primary.opacity(0.04))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                .stroke(Color.primary.opacity(0.10), lineWidth: 1)
         )
     }
 
@@ -417,10 +486,10 @@ private struct Beat2ModelCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Wähle dein Startmodell aus")
                     .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.94))
+                    .foregroundStyle(.primary.opacity(0.94))
                 Text("Dein erster lokaler Assistent. Später jederzeit änderbar.")
                     .font(.system(size: 11.5, weight: .light))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(.primary.opacity(0.55))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -481,12 +550,161 @@ private struct Beat2ModelCard: View {
         .padding(.vertical, 14)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.04))
+                .fill(Color.primary.opacity(0.04))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+                .stroke(Color.primary.opacity(0.10), lineWidth: 1)
         )
+    }
+}
+
+private struct Beat2ThemeCard: View {
+    @Binding var selectedMode: AppearanceMode
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 14) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color(red: 120.0 / 255, green: 170.0 / 255, blue: 255.0 / 255).opacity(0.12))
+                    .frame(width: 32, height: 32)
+                Image(systemName: "circle.lefthalf.filled")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(Color(red: 150.0 / 255, green: 190.0 / 255, blue: 255.0 / 255))
+            }
+
+            VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Erscheinungsbild")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.94))
+                    Text("Kann jederzeit in den Einstellungen geändert werden.")
+                        .font(.system(size: 11.5, weight: .light))
+                        .foregroundStyle(.primary.opacity(0.55))
+                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(spacing: 10) {
+                    ForEach(AppearanceMode.allCases) { mode in
+                        ThemePreviewCapsule(
+                            mode: mode,
+                            isActive: selectedMode == mode
+                        ) {
+                            withAnimation(.easeInOut(duration: 0.35)) {
+                                selectedMode = mode
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.primary.opacity(0.04))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.primary.opacity(0.10), lineWidth: 1)
+        )
+    }
+}
+
+/// A single preview capsule used inside `Beat2ThemeCard`. Each
+/// capsule renders a miniature of the theme it represents — dark
+/// capsule for Dark mode (mini dark-blue gradient + moon icon),
+/// light capsule for Light mode (flat light background + sun
+/// icon). The active capsule gets a soft-blue stroke and full
+/// opacity; the inactive one fades back to 45%.
+private struct ThemePreviewCapsule: View {
+    let mode: AppearanceMode
+    let isActive: Bool
+    let onTap: () -> Void
+
+    private let accent = Color(red: 120.0 / 255, green: 170.0 / 255, blue: 255.0 / 255)
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 6) {
+                Image(systemName: mode.iconName)
+                    .font(.system(size: 11, weight: .medium))
+                Text(mode.label.uppercased())
+                    .font(.system(size: 10, weight: .medium))
+                    .tracking(1.2)
+            }
+            .foregroundStyle(capsuleForeground)
+            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(
+                        LinearGradient(
+                            colors: capsuleFill,
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            )
+            .overlay(
+                Capsule()
+                    .stroke(
+                        isActive ? accent.opacity(0.60) : Color.primary.opacity(0.18),
+                        lineWidth: 1
+                    )
+            )
+        }
+        .buttonStyle(LoslegenPressStyle())
+    }
+
+    /// Two-colour gradient fill for the capsule interior — picks the
+    /// Lokalo dark blue for the Dark capsule and an opaque near-white
+    /// for the Light capsule. The colours are intentionally *fixed*
+    /// regardless of the global appearance mode, because each capsule
+    /// is previewing a specific theme — the Dark capsule must look
+    /// dark even when the whole app is in light mode, and vice versa.
+    private var capsuleFill: [Color] {
+        switch mode {
+        case .dark:
+            return [
+                Color(red: 0.03, green: 0.05, blue: 0.12),
+                Color(red: 0.01, green: 0.02, blue: 0.06)
+            ]
+        case .light:
+            return [
+                Color(white: 0.98),
+                Color(white: 0.92)
+            ]
+        }
+    }
+
+    /// Foreground colour for the capsule's icon + label. Locked to
+    /// the capsule's own mode (white on the dark capsule, near-black
+    /// on the light capsule) so the label is always legible against
+    /// the matching capsule fill, regardless of the surrounding
+    /// theme. Active capsules get 0.94 opacity, inactive 0.45.
+    private var capsuleForeground: Color {
+        let base: Color = (mode == .dark) ? .white : Color(white: 0.10)
+        return base.opacity(isActive ? 0.94 : 0.45)
+    }
+}
+
+/// Custom press style for the "Loslegen" button: a subtle 0.94 scale
+/// with a snappy interpolating spring. Gives the tap physical weight
+/// without leaving the button looking "held down" for long. Stiffness
+/// 420 settles in ~0.18 s, so the release-back is almost instant and
+/// doesn't fight with the outer page-dismissal spring.
+private struct LoslegenPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.94 : 1.0)
+            .animation(
+                .interpolatingSpring(stiffness: 420, damping: 22),
+                value: configuration.isPressed
+            )
     }
 }
 
