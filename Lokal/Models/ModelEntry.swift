@@ -87,6 +87,44 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         self.recommendedContextTokens = recommendedContextTokens
     }
 
+    // MARK: - Codable
+    //
+    // Custom decoding so the bundled `models.json` can omit
+    // `activeParametersBillion` (defaults to `parametersBillion`) and
+    // `isLocalCapable` (defaults to `true`). This keeps the JSON terse
+    // for the common case (a dense, on-device model) and only forces
+    // those fields when they actually differ.
+
+    private enum CodingKeys: String, CodingKey {
+        case id, displayName, ollamaTag, publisher, summary
+        case parametersBillion, activeParametersBillion, isLocalCapable
+        case quantization, sizeBytes, estimatedRAMBytes
+        case downloadURL, filename, chatTemplate
+        case licenseLabel, maxContextTokens, recommendedContextTokens
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(String.self, forKey: .id)
+        self.displayName = try c.decode(String.self, forKey: .displayName)
+        self.ollamaTag = try c.decodeIfPresent(String.self, forKey: .ollamaTag)
+        self.publisher = try c.decode(String.self, forKey: .publisher)
+        self.summary = try c.decode(String.self, forKey: .summary)
+        self.parametersBillion = try c.decode(Double.self, forKey: .parametersBillion)
+        self.activeParametersBillion = try c.decodeIfPresent(Double.self, forKey: .activeParametersBillion)
+            ?? self.parametersBillion
+        self.isLocalCapable = try c.decodeIfPresent(Bool.self, forKey: .isLocalCapable) ?? true
+        self.quantization = try c.decode(String.self, forKey: .quantization)
+        self.sizeBytes = try c.decode(Int64.self, forKey: .sizeBytes)
+        self.estimatedRAMBytes = try c.decode(Int64.self, forKey: .estimatedRAMBytes)
+        self.downloadURL = try c.decode(URL.self, forKey: .downloadURL)
+        self.filename = try c.decode(String.self, forKey: .filename)
+        self.chatTemplate = try c.decode(ChatTemplate.Family.self, forKey: .chatTemplate)
+        self.licenseLabel = try c.decode(String.self, forKey: .licenseLabel)
+        self.maxContextTokens = try c.decode(Int.self, forKey: .maxContextTokens)
+        self.recommendedContextTokens = try c.decode(Int.self, forKey: .recommendedContextTokens)
+    }
+
     var sizeGB: Double { Double(sizeBytes) / 1_073_741_824.0 }
     var ramGB: Double { Double(estimatedRAMBytes) / 1_073_741_824.0 }
     var parametersLabel: String {

@@ -8,6 +8,7 @@
 
 /* Begin PBXBuildFile section */
 		0695BA95228327ED6B9CF4F2 /* ConnectionsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 631C8786EE9C1D67FD8FA755 /* ConnectionsSettingsView.swift */; };
+		0948BAFAB27A5AA3B6FA9354 /* models.json in Resources */ = {isa = PBXBuildFile; fileRef = 56CC2E9D35099663BB9768DF /* models.json */; };
 		0AF20F14570F1E9D03E0565F /* MCP in Frameworks */ = {isa = PBXBuildFile; productRef = 596262882E81BC8276FF8A1C /* MCP */; };
 		0D008BCB194602204D0C64A9 /* IndexingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F439352E837668B9B59A2E46 /* IndexingService.swift */; };
 		11B373378D6DBB249CEC31C3 /* WebAuthenticator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F3CDDA22321487AD879D447 /* WebAuthenticator.swift */; };
@@ -75,6 +76,7 @@
 		E8F29B8B92D91A27A4C80A73 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 9C95438A4D41AC453D424AAC /* KeychainAccess */; };
 		E942B8512F024AEDF441FCDF /* LicensesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D8E08ED0A945DF166283220 /* LicensesView.swift */; };
 		F02D5579756692F35CD4DC98 /* KnowledgeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2485A34FD661FF832A4A3DD /* KnowledgeView.swift */; };
+		F58A13527DBD0C78EAE0544C /* RemoteCatalogService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6DD6FD0900B742342404558 /* RemoteCatalogService.swift */; };
 		F99B6BFD2632491B4B188C54 /* OnboardingFirstRunTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AB7F644655F979AD50D5CB2 /* OnboardingFirstRunTests.swift */; };
 		FB167F6EC7717193BDFDC775 /* KnowledgeBase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F0988007C61D43253FCC3D5 /* KnowledgeBase.swift */; };
 		FDAEE53CC8163F0C9127338F /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 97CE37939AEA649153B4B965 /* Metal.framework */; };
@@ -142,6 +144,7 @@
 		4CF22A7CEF4957A6878F70B1 /* MCPStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPStore.swift; sourceTree = "<group>"; };
 		4F0988007C61D43253FCC3D5 /* KnowledgeBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeBase.swift; sourceTree = "<group>"; };
 		4F3CDDA22321487AD879D447 /* WebAuthenticator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthenticator.swift; sourceTree = "<group>"; };
+		56CC2E9D35099663BB9768DF /* models.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = models.json; sourceTree = "<group>"; };
 		59D9F2F7ED6B66368D89EC57 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		5C34441323B8082E2FE86729 /* ToolCallParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallParserTests.swift; sourceTree = "<group>"; };
 		631C8786EE9C1D67FD8FA755 /* ConnectionsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsSettingsView.swift; sourceTree = "<group>"; };
@@ -162,6 +165,7 @@
 		A3A0AD7E65BF899CC685E2E1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AB8448B535222318CAD778D7 /* ModelEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelEntry.swift; sourceTree = "<group>"; };
 		B5415EF58A37CFA08013E41C /* Lokal.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Lokal.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B6DD6FD0900B742342404558 /* RemoteCatalogService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteCatalogService.swift; sourceTree = "<group>"; };
 		B8C5404C814C06578433A9FC /* DownloadConfirmSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadConfirmSheet.swift; sourceTree = "<group>"; };
 		BA95DAD5902062C863199CAF /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		BF46CCA3A3C641B139A60DF2 /* DownloadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DownloadManager.swift; sourceTree = "<group>"; };
@@ -252,6 +256,7 @@
 				8E5C0E4F8BBAB0D1E7BECAAF /* KnowledgeBaseStore.swift */,
 				4CF22A7CEF4957A6878F70B1 /* MCPStore.swift */,
 				E0EEBF16DD761833CE071C3C /* ModelStore.swift */,
+				B6DD6FD0900B742342404558 /* RemoteCatalogService.swift */,
 			);
 			path = State;
 			sourceTree = "<group>";
@@ -353,6 +358,7 @@
 		CC3D4F35474EF5C6F5D73B55 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				56CC2E9D35099663BB9768DF /* models.json */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -560,6 +566,7 @@
 			files = (
 				21D4735C90E1CF1E706DB704 /* Assets.xcassets in Resources */,
 				9DC62D625CBB5D1DBCE2BFAB /* PrivacyInfo.xcprivacy in Resources */,
+				0948BAFAB27A5AA3B6FA9354 /* models.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -628,6 +635,7 @@
 				3C614316CD9B5FC005C55B2B /* OnboardingPreferences.swift in Sources */,
 				FF0D2E235B7975ED60826A33 /* OneDriveOAuth.swift in Sources */,
 				7CBBBB01895A31D059B090B5 /* PKCE.swift in Sources */,
+				F58A13527DBD0C78EAE0544C /* RemoteCatalogService.swift in Sources */,
 				6C481564890BB778C1A101EF /* RootView.swift in Sources */,
 				49CE1E9B56EB4C118A044C4A /* SettingsSheet.swift in Sources */,
 				A9A7EE132BB0C0C029F271B4 /* ToolCallParser.swift in Sources */,

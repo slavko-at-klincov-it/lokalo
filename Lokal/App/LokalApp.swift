@@ -20,6 +20,7 @@ struct LokalApp: App {
     @State private var embeddingDownloader: EmbeddingDownloader
     @State private var indexingService: IndexingService
     @State private var chatStore: ChatStore
+    @State private var remoteCatalogService: RemoteCatalogService
 
     init() {
         let modelStore = ModelStore()
@@ -27,6 +28,7 @@ struct LokalApp: App {
         let embeddingStore = EmbeddingModelStore()
         let connectionStore = ConnectionStore()
         let mcpStore = MCPStore()
+        let remoteCatalogService = RemoteCatalogService()
 
         let downloadManager = DownloadManager(modelStore: modelStore)
         let embeddingDownloader = EmbeddingDownloader(store: embeddingStore)
@@ -51,6 +53,7 @@ struct LokalApp: App {
         _embeddingDownloader = State(wrappedValue: embeddingDownloader)
         _indexingService    = State(wrappedValue: indexingService)
         _chatStore          = State(wrappedValue: chatStore)
+        _remoteCatalogService = State(wrappedValue: remoteCatalogService)
     }
 
     /// First-launch flag — when false, the OnboardingFlow runs before the
@@ -82,6 +85,7 @@ struct LokalApp: App {
             .environment(indexingService)
             .environment(connectionStore)
             .environment(mcpStore)
+            .environment(remoteCatalogService)
             .preferredColorScheme(nil)
             .tint(.accentColor)
             .task {
@@ -97,6 +101,13 @@ struct LokalApp: App {
                 mcpStore.bootstrap()
                 await downloadManager.resumePending()
                 await mcpStore.connectAllEnabled()
+                // Refresh the model catalog from the remote in the
+                // background. The new catalog only takes effect on the
+                // next app launch (ModelCatalog.manifest is loaded once
+                // synchronously and held for the process lifetime), but
+                // we still kick this off every launch so the cache stays
+                // close to head-of-main.
+                await remoteCatalogService.refresh()
                 await chatStore.runAutoTestPromptIfPresent()
             }
         }

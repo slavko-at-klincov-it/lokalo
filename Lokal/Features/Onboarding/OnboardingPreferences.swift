@@ -18,11 +18,13 @@ enum OnboardingPreferences {
     static let cellularDownloadsAllowedKey = "Lokal.onboarding.cellularDownloadsAllowed"
 
     /// The model the user picked as the suggested-first-model. Lookup happens
-    /// against `ModelCatalog.entry(id:)`. Default falls back to the smallest
-    /// Qwen if the chosen ID has been removed from the catalog.
+    /// against `ModelCatalog.entry(id:)`. An empty string means the user
+    /// picked the "Später wählen" option in onboarding — `RootView` then
+    /// drops them in the empty Library instead of auto-pushing a detail view.
     static let preferredFirstModelIDKey = "Lokal.onboarding.preferredFirstModelID"
 
-    /// Hard-coded fallback for `preferredFirstModelIDKey`. Matches the smallest
-    /// model in the bundled catalog (~380 MB Q4_K_M).
-    static let defaultFirstModelID = "qwen-2.5-0.5b-instruct-q4km"
+    /// Hard-coded fallback for `preferredFirstModelIDKey`. Defaults to the
+    /// newest small Qwen — Qwen 3.5 0.8B (~557 MB Q4_K_M, 201 languages,
+    /// 256K context, hybrid Gated DeltaNet architecture).
+    static let defaultFirstModelID = "qwen-3.5-0.8b-instruct-q4km"
 }

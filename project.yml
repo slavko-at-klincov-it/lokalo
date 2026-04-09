@@ -40,6 +40,9 @@ targets:
       - path: Lokal
         excludes:
           - "**/.DS_Store"
+          - "Resources/**"
+      - path: Lokal/Resources
+        buildPhase: resources
     resources:
       - path: Lokal/Assets.xcassets
         type: folder

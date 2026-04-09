@@ -76,6 +76,7 @@ struct SettingsSheet: View {
                         }
                     }
                     Picker(selection: $preferredFirstModelID) {
+                        Text("Später wählen").tag("")
                         ForEach(ModelCatalog.phoneCompatible.sorted { $0.sizeBytes < $1.sizeBytes }) { entry in
                             Text("\(entry.displayName) · \(String(format: "%.1f GB", entry.sizeGB))")
                                 .tag(entry.id)

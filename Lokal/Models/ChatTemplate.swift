@@ -11,6 +11,7 @@ struct ChatTemplate {
     enum Family: String, Codable, Sendable, CaseIterable {
         case llama3
         case chatml
+        case qwen3
         case phi3
         case phi4
         case gemma
@@ -22,6 +23,7 @@ struct ChatTemplate {
         switch family {
         case .llama3:  return renderLlama3(system: system, messages: messages)
         case .chatml:  return renderChatML(system: system, messages: messages)
+        case .qwen3:   return renderQwen3(system: system, messages: messages)
         case .phi3:    return renderPhi3(system: system, messages: messages)
         case .phi4:    return renderPhi4(system: system, messages: messages)
         case .gemma:   return renderGemma(system: system, messages: messages)
@@ -34,6 +36,7 @@ struct ChatTemplate {
         switch family {
         case .llama3:  return ["<|eot_id|>", "<|end_of_text|>"]
         case .chatml:  return ["<|im_end|>", "<|endoftext|>"]
+        case .qwen3:   return ["<|im_end|>", "<|endoftext|>"]
         case .phi3:    return ["<|end|>", "<|endoftext|>"]
         case .phi4:    return ["<|end|>", "<|endoftext|>"]
         case .gemma:   return ["<end_of_turn>", "<eos>"]
@@ -78,6 +81,32 @@ struct ChatTemplate {
             }
         }
         s += "<|im_start|>assistant\n"
+        return s
+    }
+
+    /// Qwen 3 / 3.5 family. Same im_start/im_end framing as ChatML, but the
+    /// model is trained to always emit a `<think>...</think>` reasoning block
+    /// before its actual reply. We pre-fill an *empty* thinking block right
+    /// after the assistant prefix to put the model in non-thinking mode —
+    /// this matches what `tokenizer_config.json` does when `enable_thinking`
+    /// is false (default for chat) and avoids leaking `<think>` tags into
+    /// the user-visible response.
+    private static func renderQwen3(system: String?, messages: [ChatMessage]) -> String {
+        var s = ""
+        if let system, !system.isEmpty {
+            s += "<|im_start|>system\n\(system)<|im_end|>\n"
+        }
+        for m in messages {
+            switch m.role {
+            case .user:
+                s += "<|im_start|>user\n\(m.content)<|im_end|>\n"
+            case .assistant:
+                s += "<|im_start|>assistant\n\(m.content)<|im_end|>\n"
+            case .system:
+                continue
+            }
+        }
+        s += "<|im_start|>assistant\n<think>\n\n</think>\n\n"
         return s
     }
 

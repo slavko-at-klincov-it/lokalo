@@ -35,7 +35,10 @@ struct Beat2EinstellungenView: View {
     }
 
     private var selectedModelDisplayName: String {
-        ModelCatalog.entry(id: preferredFirstModelID)?.displayName ?? "Qwen 2.5 0.5B"
+        if preferredFirstModelID.isEmpty {
+            return "Später wählen"
+        }
+        return ModelCatalog.entry(id: preferredFirstModelID)?.displayName ?? "Später wählen"
     }
 
     var body: some View {
@@ -242,6 +245,17 @@ private struct Beat2ModelCard: View {
             Spacer(minLength: 8)
 
             Menu {
+                Button {
+                    selectedID = ""
+                } label: {
+                    HStack {
+                        Text("Später wählen")
+                        if selectedID.isEmpty {
+                            Image(systemName: "checkmark")
+                        }
+                    }
+                }
+                Divider()
                 ForEach(choices) { choice in
                     Button {
                         selectedID = choice.id

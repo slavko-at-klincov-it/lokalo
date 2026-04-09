@@ -84,6 +84,50 @@ final class ModelCatalogTests: XCTestCase {
             XCTAssertLessThan(entry.sizeBytes, 8_000_000_000, "\(entry.id) too big for phone")
         }
     }
+
+    func testBundledManifestLoadsFromJSON() {
+        // The catalog used to be a hardcoded Swift array; it's now loaded
+        // from `Resources/models.json`. If the bundle resource is missing
+        // or malformed, `manifest` collapses to `.empty` and every
+        // user-facing list is silently empty. Catch that here.
+        let manifest = ModelCatalog.manifest
+        XCTAssertGreaterThan(manifest.version, 0, "Bundled manifest version must be > 0")
+        XCTAssertGreaterThan(manifest.entries.count, 0, "Bundled manifest must have entries")
+        XCTAssertGreaterThan(manifest.maxEffectiveBillion, 0)
+    }
+
+    func testQwen35IsPresent() throws {
+        let entry = try XCTUnwrap(
+            ModelCatalog.entry(id: "qwen-3.5-0.8b-instruct-q4km"),
+            "Qwen 3.5 0.8B must exist in the bundled catalog"
+        )
+        XCTAssertEqual(entry.publisher, "Alibaba")
+        XCTAssertEqual(entry.chatTemplate, .qwen3)
+        XCTAssertEqual(entry.sizeBytes, 556_982_432,
+                       "Size must match the exact Content-Length from HF CDN")
+    }
+
+    func testFourSmallestIncludeQwen35() {
+        // The onboarding picker shows the four smallest phone-compatible
+        // entries. Qwen 3.5 0.8B (557 MB) must be in that set.
+        let smallest4 = ModelCatalog.phoneCompatible
+            .sorted { $0.sizeBytes < $1.sizeBytes }
+            .prefix(4)
+            .map(\.id)
+        XCTAssertTrue(smallest4.contains("qwen-3.5-0.8b-instruct-q4km"),
+                      "Qwen 3.5 0.8B must be among the four smallest. Got: \(smallest4)")
+    }
+
+    func testEveryEntryUsesAKnownChatTemplate() {
+        // Catches stale JSON that references a removed Family case.
+        // Custom Decodable already fails at load time, but this test
+        // gives a clearer failure message if it ever fires.
+        let validFamilies = Set(ChatTemplate.Family.allCases)
+        for entry in ModelCatalog.all {
+            XCTAssertTrue(validFamilies.contains(entry.chatTemplate),
+                          "\(entry.id) uses unknown chat template family")
+        }
+    }
 }
 
 @MainActor
