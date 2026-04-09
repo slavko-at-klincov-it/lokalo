@@ -39,3 +39,8 @@ Frameworks/build-apple/
 .idea/
 .vscode/
 *.swp
+
+# App Store Connect API credentials — never commit
+scripts/testflight-config.sh
+scripts/AuthKey_*.p8
+*.p8

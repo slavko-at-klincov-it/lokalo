@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#
+# testflight-config.sh.template
+#
+# Copy this file to scripts/testflight-config.sh and fill in your values.
+# scripts/testflight-config.sh is gitignored — it MUST NOT be committed.
+#
+#   cp scripts/testflight-config.sh.template scripts/testflight-config.sh
+#   $EDITOR scripts/testflight-config.sh
+#
+# How to obtain the values:
+#   1. https://appstoreconnect.apple.com → Users and Access → Integrations
+#      → App Store Connect API
+#   2. Generate an API key with "App Manager" role (or higher).
+#   3. Download the .p8 file ONCE — Apple does not let you re-download it.
+#   4. Copy the Key ID (10 chars) and Issuer ID (UUID) shown on the same page.
+#   5. Store the .p8 OUTSIDE the repo (e.g. ~/Code/Build_AppStore/).
+#
+
+# Absolute path to the .p8 file. Keep this outside the repo.
+export ASC_KEY_PATH="/path/to/AuthKey_XXXXXXXXXX.p8"
+
+# 10-character key identifier (matches the filename: AuthKey_<KEY_ID>.p8).
+export ASC_KEY_ID="XXXXXXXXXX"
+
+# UUID of the App Store Connect issuer.
+export ASC_ISSUER_ID="00000000-0000-0000-0000-000000000000"
