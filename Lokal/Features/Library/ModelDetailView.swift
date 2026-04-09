@@ -94,7 +94,7 @@ struct ModelDetailView: View {
             Text(entry.summary)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            Text("Lizenz: \(entry.licenseLabel)")
+            Text("Lizenz: \(entry.license.displayLabel)")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }

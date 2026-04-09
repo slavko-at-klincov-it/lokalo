@@ -55,12 +55,20 @@ enum ModelCatalog {
     /// measured by what they actually compute, not by their total weight count.
     static var maxEffectiveBillion: Double { manifest.maxEffectiveBillion }
 
-    /// All catalog entries that satisfy two hard rules:
+    /// All catalog entries that satisfy three hard rules:
     ///   1. they run fully on-device (`isLocalCapable`),
-    ///   2. their effective active params are at most `maxEffectiveBillion`.
+    ///   2. their effective active params are at most `maxEffectiveBillion`,
+    ///   3. their license permits commercial App Store distribution.
     /// Every UI list that shows downloadable models must funnel through here.
+    /// The license filter is defense-in-depth against a remote catalog
+    /// update introducing a non-commercial entry — the bundled `models.json`
+    /// is also checked at build time by `LicenseComplianceTests`.
     static var phoneCompatible: [ModelEntry] {
-        all.filter { $0.isLocalCapable && $0.activeParametersBillion <= maxEffectiveBillion }
+        all.filter {
+            $0.isLocalCapable
+            && $0.activeParametersBillion <= maxEffectiveBillion
+            && $0.license.commercialUseAllowed
+        }
     }
 
     static func entry(id: String) -> ModelEntry? {

@@ -42,8 +42,11 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
     let filename: String
     /// Chat template family name.
     let chatTemplate: ChatTemplate.Family
-    /// License short label.
-    let licenseLabel: String
+    /// Typed license. Decoded from the `licenseLabel` string in `models.json`
+    /// via `ModelLicense.init(rawLabel:)`. Drives the commercial-use filter
+    /// in `ModelCatalog.phoneCompatible` — entries whose license does not
+    /// permit App Store distribution are silently excluded from the catalog.
+    let license: ModelLicense
     /// Maximum context window the model supports (informational).
     let maxContextTokens: Int
     /// Default context window the engine should use on phone.
@@ -64,7 +67,7 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         downloadURL: URL,
         filename: String,
         chatTemplate: ChatTemplate.Family,
-        licenseLabel: String,
+        license: ModelLicense,
         maxContextTokens: Int,
         recommendedContextTokens: Int
     ) {
@@ -82,7 +85,7 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         self.downloadURL = downloadURL
         self.filename = filename
         self.chatTemplate = chatTemplate
-        self.licenseLabel = licenseLabel
+        self.license = license
         self.maxContextTokens = maxContextTokens
         self.recommendedContextTokens = recommendedContextTokens
     }
@@ -100,7 +103,12 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         case parametersBillion, activeParametersBillion, isLocalCapable
         case quantization, sizeBytes, estimatedRAMBytes
         case downloadURL, filename, chatTemplate
-        case licenseLabel, maxContextTokens, recommendedContextTokens
+        // The Swift property is `license` (typed) but the JSON key is
+        // `licenseLabel` (string) for backwards compatibility with the
+        // existing models.json schema. ModelLicense's own Codable
+        // conformance handles the string ↔ enum round-trip.
+        case license = "licenseLabel"
+        case maxContextTokens, recommendedContextTokens
     }
 
     init(from decoder: Decoder) throws {
@@ -120,7 +128,12 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         self.downloadURL = try c.decode(URL.self, forKey: .downloadURL)
         self.filename = try c.decode(String.self, forKey: .filename)
         self.chatTemplate = try c.decode(ChatTemplate.Family.self, forKey: .chatTemplate)
-        self.licenseLabel = try c.decode(String.self, forKey: .licenseLabel)
+        // ModelLicense's own decoder reads a single string from the JSON
+        // and runs it through `init(rawLabel:)`, so unknown labels fall
+        // through to `.other(raw)` instead of failing the whole catalog
+        // decode. The conservative-default rule then keeps them out of
+        // the user-facing catalog at filter time.
+        self.license = try c.decode(ModelLicense.self, forKey: .license)
         self.maxContextTokens = try c.decode(Int.self, forKey: .maxContextTokens)
         self.recommendedContextTokens = try c.decode(Int.self, forKey: .recommendedContextTokens)
     }

@@ -81,23 +81,6 @@
       "recommendedContextTokens": 4096
     },
     {
-      "id": "qwen-2.5-3b-instruct-q4km",
-      "displayName": "Qwen 2.5 3B Instruct",
-      "ollamaTag": "qwen2.5:3b",
-      "publisher": "Alibaba",
-      "summary": "Best 3B-class for code, math and structured output. Punches above its weight.",
-      "parametersBillion": 3.09,
-      "quantization": "Q4_K_M",
-      "sizeBytes": 1929903264,
-      "estimatedRAMBytes": 2576980377,
-      "downloadURL": "https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-      "filename": "Qwen2.5-3B-Instruct-Q4_K_M.gguf",
-      "chatTemplate": "chatml",
-      "licenseLabel": "Qwen Research",
-      "maxContextTokens": 32768,
-      "recommendedContextTokens": 4096
-    },
-    {
       "id": "qwen-3.5-0.8b-instruct-q4km",
       "displayName": "Qwen 3.5 0.8B",
       "ollamaTag": "qwen3.5:0.8b",

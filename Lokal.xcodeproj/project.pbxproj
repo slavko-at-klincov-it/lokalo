@@ -22,6 +22,7 @@
 		3C614316CD9B5FC005C55B2B /* OnboardingPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F9A777F4818406FD16DF8CC /* OnboardingPreferences.swift */; };
 		3D547C3E4E72D797571F20DC /* DownloadConfirmSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8C5404C814C06578433A9FC /* DownloadConfirmSheet.swift */; };
 		3F586939FFC96FB97BBFD0B0 /* DownloadManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE4FBA9E4466E75892E9759E /* DownloadManagerTests.swift */; };
+		44A3D9318AB3A333DD305507 /* ModelLicense.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB0F64379364B70C5306778C /* ModelLicense.swift */; };
 		476FACD14C04A7EBDB7FE5EB /* LokalUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F360DC4F7A44DAB375FFA43C /* LokalUITests.swift */; };
 		49662C667A15F5FAEAF1E419 /* OnboardingFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF28A6EBB73999FB08FD3E7A /* OnboardingFlow.swift */; };
 		49CE1E9B56EB4C118A044C4A /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFAA7A518B5E64312A4A1768 /* SettingsSheet.swift */; };
@@ -46,6 +47,7 @@
 		7E7B084CAC490C1348BEC782 /* EmbeddingModelSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFD098F15F0E96E4357462DB /* EmbeddingModelSetupView.swift */; };
 		82680B4B07C933990D73BDB5 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F70492DF72EE0983EB328CF /* LibraryView.swift */; };
 		8505AA6DAD6F32CE1375189F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38412EBD2EE1559081A5B64C /* ChatView.swift */; };
+		86764AEA207765A5E1ACC33A /* LicenseComplianceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F9DBE7219988B03C55303CF /* LicenseComplianceTests.swift */; };
 		913279F6E4650A68D1CBA1E2 /* EmbeddingModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9A563F8262C0EA848592717 /* EmbeddingModelStore.swift */; };
 		914BC7ED87D5ACCDF53360AD /* LlamaEngineEdgeCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 319CB23794BEC78A4D5C6229 /* LlamaEngineEdgeCaseTests.swift */; };
 		93988634713A6FD6128FBE95 /* GitHubOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000A9BBE10AFA045FE88B646 /* GitHubOAuth.swift */; };
@@ -144,6 +146,7 @@
 		4CF22A7CEF4957A6878F70B1 /* MCPStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPStore.swift; sourceTree = "<group>"; };
 		4F0988007C61D43253FCC3D5 /* KnowledgeBase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeBase.swift; sourceTree = "<group>"; };
 		4F3CDDA22321487AD879D447 /* WebAuthenticator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebAuthenticator.swift; sourceTree = "<group>"; };
+		4F9DBE7219988B03C55303CF /* LicenseComplianceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LicenseComplianceTests.swift; sourceTree = "<group>"; };
 		56CC2E9D35099663BB9768DF /* models.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = models.json; sourceTree = "<group>"; };
 		59D9F2F7ED6B66368D89EC57 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		5C34441323B8082E2FE86729 /* ToolCallParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolCallParserTests.swift; sourceTree = "<group>"; };
@@ -163,6 +166,7 @@
 		9AE8A9E933DA43A200CA1F85 /* Chunker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chunker.swift; sourceTree = "<group>"; };
 		9E18F8B7D3BD399B93F5796B /* ModelSwitchOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelSwitchOverlay.swift; sourceTree = "<group>"; };
 		A3A0AD7E65BF899CC685E2E1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AB0F64379364B70C5306778C /* ModelLicense.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelLicense.swift; sourceTree = "<group>"; };
 		AB8448B535222318CAD778D7 /* ModelEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelEntry.swift; sourceTree = "<group>"; };
 		B5415EF58A37CFA08013E41C /* Lokal.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Lokal.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B6DD6FD0900B742342404558 /* RemoteCatalogService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteCatalogService.swift; sourceTree = "<group>"; };
@@ -225,6 +229,7 @@
 				FE4FBA9E4466E75892E9759E /* DownloadManagerTests.swift */,
 				668B5889248D6A24022C05C0 /* InferenceSmokeTests.swift */,
 				BA95DAD5902062C863199CAF /* Info.plist */,
+				4F9DBE7219988B03C55303CF /* LicenseComplianceTests.swift */,
 				319CB23794BEC78A4D5C6229 /* LlamaEngineEdgeCaseTests.swift */,
 				4606D94BCB9F10D2B174F58E /* LlamaEngineStopStringTests.swift */,
 				2DE86296420EA04D828224D9 /* LlamaEngineTests.swift */,
@@ -436,6 +441,7 @@
 				89AC14F3C0CBD86C081BDDAB /* Message.swift */,
 				2C875722D9E4B5F713822E94 /* ModelCatalog.swift */,
 				AB8448B535222318CAD778D7 /* ModelEntry.swift */,
+				AB0F64379364B70C5306778C /* ModelLicense.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -627,6 +633,7 @@
 				C04D8DC92D81B9B833A00767 /* ModelCatalog.swift in Sources */,
 				1324C5E3ADC33FF0425EFA57 /* ModelDetailView.swift in Sources */,
 				B23B6AE10A01B941536AA772 /* ModelEntry.swift in Sources */,
+				44A3D9318AB3A333DD305507 /* ModelLicense.swift in Sources */,
 				564C890859C180765AB847B4 /* ModelPickerSheet.swift in Sources */,
 				D00ECA0FBABBFBB75C20C0F4 /* ModelStore.swift in Sources */,
 				209DBCAAEC7AC3B0B202F34F /* ModelSwitchOverlay.swift in Sources */,
@@ -650,6 +657,7 @@
 			files = (
 				3F586939FFC96FB97BBFD0B0 /* DownloadManagerTests.swift in Sources */,
 				962D6CD7A06EAB8AB5D5A648 /* InferenceSmokeTests.swift in Sources */,
+				86764AEA207765A5E1ACC33A /* LicenseComplianceTests.swift in Sources */,
 				914BC7ED87D5ACCDF53360AD /* LlamaEngineEdgeCaseTests.swift in Sources */,
 				5DEA53E00234EA0DEC167B54 /* LlamaEngineStopStringTests.swift in Sources */,
 				BBF5E0E4ABA3A82C88DDA6B6 /* LlamaEngineTests.swift in Sources */,

@@ -38,7 +38,7 @@ Lade ein Modell einmal herunter und chatte offline. Standardmäßig verlässt ni
 KURATIERTE MODELLE
 Eine handverlesene Auswahl an kompakten Sprachmodellen, optimiert für die Hardware deines iPhones:
 • Llama 3.2 1B & 3B Instruct (Meta)
-• Qwen 2.5 0.5B, 1.5B & 3B Instruct (Alibaba)
+• Qwen 2.5 0.5B & 1.5B Instruct, Qwen 3.5 0.8B (Alibaba)
 • Phi-3.5 Mini & Phi-4 Mini (Microsoft)
 • Gemma 2 2B, Gemma 3 1B & 4B (Google)
 • SmolLM2 1.7B & SmolLM3 3B (Hugging Face)
@@ -140,7 +140,7 @@ Download a model once and chat offline. By default, nothing leaves your iPhone.
 CURATED MODELS
 A handpicked selection of compact language models optimized for iPhone hardware:
 • Llama 3.2 1B & 3B Instruct (Meta)
-• Qwen 2.5 0.5B, 1.5B & 3B Instruct (Alibaba)
+• Qwen 2.5 0.5B & 1.5B Instruct, Qwen 3.5 0.8B (Alibaba)
 • Phi-3.5 Mini & Phi-4 Mini (Microsoft)
 • Gemma 2 2B, Gemma 3 1B & 4B (Google)
 • SmolLM2 1.7B & SmolLM3 3B (Hugging Face)
