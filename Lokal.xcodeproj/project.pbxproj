@@ -540,11 +540,11 @@
 				};
 			};
 			buildConfigurationList = 3A29DD13C1FC6F10C6550419 /* Build configuration list for PBXProject "Lokal" */;
-			developmentRegion = en;
+			developmentRegion = de;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
-				en,
+				de,
 			);
 			mainGroup = 7CFC5427076C2686F22CDD77;
 			minimizedProjectReferenceProxies = 1;
