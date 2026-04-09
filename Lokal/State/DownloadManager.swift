@@ -8,6 +8,7 @@
 import Foundation
 import Network
 import Observation
+import CryptoKit
 
 /// Coarse classification of the active network path. The download manager
 /// uses this to honor the user's "Modelle ohne WLAN laden" preference.
@@ -31,6 +32,10 @@ final class DownloadTask: Identifiable {
     enum State: Equatable {
         case queued
         case downloading
+        /// Fully downloaded, hashing the file to verify its `sha256`
+        /// before the atomic rename to the final filename. The UI
+        /// should show a spinner with a "Wird überprüft…" label.
+        case verifying
         case paused
         case completed
         case failed(String)
@@ -58,7 +63,15 @@ final class DownloadManager {
     private let modelStore: ModelStore
     private var sessionDelegate: DelegateBox?
     private var session: URLSession?
-    private var taskMap: [Int: String] = [:]      // urlSessionTask.taskIdentifier → modelID
+    /// Forward lookup: modelID → URLSessionDataTask. Used by `cancel` /
+    /// `pause` to reach into URLSession without doing an async
+    /// `getAllTasks` traversal. Entries are inserted in `startDownload`
+    /// and removed in `completed` (or on manual cancel).
+    private var urlTasks: [String: URLSessionDataTask] = [:]
+    /// Reverse lookup: URLSessionTask.taskIdentifier → modelID. Needed
+    /// because the URLSession delegate callbacks hand us an `Int`
+    /// identifier and we need to route back to the right `DownloadTask`.
+    private var taskMap: [Int: String] = [:]
     private var lastSampleTime: [String: Date] = [:]
     private var lastSampleBytes: [String: Int64] = [:]
     /// `NWPathMonitor` is thread-safe (it can be cancelled from any queue),
@@ -176,6 +189,7 @@ final class DownloadManager {
         guard let session else { return false }
         let dataTask = session.dataTask(with: request)
         taskMap[dataTask.taskIdentifier] = entry.id
+        urlTasks[entry.id] = dataTask
         lastSampleTime[entry.id] = .now
         lastSampleBytes[entry.id] = task.bytesDownloaded
         dataTask.resume()
@@ -184,9 +198,8 @@ final class DownloadManager {
 
     func cancel(_ id: String) {
         guard let entry = ModelCatalog.entry(id: id) else { return }
-        if let urlTask = currentURLSessionTask(for: id) {
-            urlTask.cancel()
-        }
+        urlTasks[id]?.cancel()
+        urlTasks.removeValue(forKey: id)
         if let task = tasks[id] {
             task.state = .paused
         }
@@ -195,27 +208,14 @@ final class DownloadManager {
     }
 
     func pause(_ id: String) {
-        if let urlTask = currentURLSessionTask(for: id) { urlTask.cancel() }
+        urlTasks[id]?.cancel()
+        urlTasks.removeValue(forKey: id)
         tasks[id]?.state = .paused
     }
 
     func resume(_ id: String) {
         guard let entry = ModelCatalog.entry(id: id) else { return }
         startDownload(for: entry)
-    }
-
-    private func currentURLSessionTask(for id: String) -> URLSessionTask? {
-        guard let session else { return nil }
-        let semaphore = DispatchSemaphore(value: 0)
-        var found: URLSessionTask?
-        session.getAllTasks { all in
-            found = all.first { taskID in
-                self.taskMap[taskID.taskIdentifier] == id
-            }
-            semaphore.signal()
-        }
-        _ = semaphore.wait(timeout: .now() + 1.0)
-        return found
     }
 
     // MARK: - Delegate callbacks
@@ -278,6 +278,7 @@ final class DownloadManager {
               let entry = ModelCatalog.entry(id: modelID),
               let task = tasks[modelID] else { return }
         taskMap.removeValue(forKey: taskIdentifier)
+        urlTasks.removeValue(forKey: modelID)
 
         if let error {
             // Cancellation gives URLError.cancelled
@@ -290,21 +291,108 @@ final class DownloadManager {
             return
         }
 
-        // Move .partial → final filename.
+        // The download finished OK. Verify the hash (if any) off the
+        // main actor — SHA-256 of a 500 MB file blocks the UI for
+        // ~1-2 s on modern iPhones, too long to do synchronously on
+        // MainActor. The partial stays in place until verification
+        // succeeds; the atomic rename is the very last step.
+        task.state = .verifying
         let partial = ModelStore.partialFileURL(for: entry)
         let final = ModelStore.fileURL(for: entry)
+        let expected = entry.sha256
+        let finalizedID = entry.id
+
+        Task.detached(priority: .userInitiated) { [weak self] in
+            let outcome = Self.verifyAndInstall(
+                partial: partial,
+                final: final,
+                expectedHash: expected
+            )
+            // `finalize` is MainActor-isolated; `await` hops back.
+            await self?.finalize(modelID: finalizedID, outcome: outcome)
+        }
+    }
+
+    /// Applies the result of the off-main-actor verify/move step back
+    /// onto the `DownloadTask`. Called from `completed()` via
+    /// `Task.detached` → `MainActor.run`.
+    private func finalize(modelID: String, outcome: VerifyOutcome) {
+        guard let task = tasks[modelID] else { return }
+        switch outcome {
+        case .installed(let totalBytes):
+            task.state = .completed
+            task.bytesDownloaded = totalBytes
+            modelStore.markInstalled(modelID)
+        case .verificationFailed(let expected, let actual):
+            // A bad hash means corrupted bytes or an actively wrong
+            // file at the URL — never silently keep it. The partial
+            // has already been deleted by `verifyAndInstall`.
+            let msg = "Integritätsprüfung fehlgeschlagen. Erwartet: \(expected.prefix(12))…, erhalten: \(actual.prefix(12))…"
+            task.state = .failed(msg)
+            task.error = msg
+        case .moveFailed(let message):
+            task.state = .failed(message)
+            task.error = message
+        }
+    }
+
+    private enum VerifyOutcome {
+        case installed(totalBytes: Int64)
+        case verificationFailed(expected: String, actual: String)
+        case moveFailed(String)
+    }
+
+    /// Pure function that runs on a detached task (NOT on MainActor).
+    /// Hashes the partial file if `expectedHash` is non-nil, bails
+    /// immediately on mismatch, then moves to the final location.
+    nonisolated private static func verifyAndInstall(
+        partial: URL,
+        final: URL,
+        expectedHash: String?
+    ) -> VerifyOutcome {
+        if let expectedHash {
+            let actual: String
+            do {
+                actual = try sha256Hex(of: partial)
+            } catch {
+                return .moveFailed("Konnte Datei nicht prüfen: \(error.lokaloMessage)")
+            }
+            if actual != expectedHash {
+                // Delete the corrupted partial so a retry starts fresh.
+                try? FileManager.default.removeItem(at: partial)
+                return .verificationFailed(expected: expectedHash, actual: actual)
+            }
+        }
+
         do {
             if FileManager.default.fileExists(atPath: final.path) {
                 try FileManager.default.removeItem(at: final)
             }
             try FileManager.default.moveItem(at: partial, to: final)
-            task.state = .completed
-            task.bytesDownloaded = task.bytesTotal
-            modelStore.markInstalled(entry.id)
+            let attrs = try FileManager.default.attributesOfItem(atPath: final.path)
+            let size = (attrs[.size] as? NSNumber)?.int64Value ?? 0
+            return .installed(totalBytes: size)
         } catch {
-            task.state = .failed("Konnte Datei nicht speichern: \(error.lokaloMessage)")
-            task.error = task.state == .failed("") ? "" : "\(error)"
+            return .moveFailed("Konnte Datei nicht speichern: \(error.lokaloMessage)")
         }
+    }
+
+    /// Streams the file through a CryptoKit SHA-256 hasher in 1 MB
+    /// chunks so we never hold more than one chunk in memory at a time.
+    /// Returns the digest as a lowercase hex string for direct
+    /// comparison against `models.json`.
+    nonisolated private static func sha256Hex(of fileURL: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: fileURL)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        let chunkSize = 1 << 20 // 1 MiB
+        while true {
+            let chunk = handle.readData(ofLength: chunkSize)
+            if chunk.isEmpty { break }
+            hasher.update(data: chunk)
+        }
+        let digest = hasher.finalize()
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }
 

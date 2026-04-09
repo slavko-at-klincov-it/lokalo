@@ -51,6 +51,13 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
     let maxContextTokens: Int
     /// Default context window the engine should use on phone.
     let recommendedContextTokens: Int
+    /// Optional SHA-256 of the GGUF file as a lowercase hex string. When
+    /// present, `DownloadManager` verifies the fully-downloaded file
+    /// against this hash before moving it from `.partial` to the final
+    /// filename — a mismatch deletes the partial and fails the task.
+    /// When `nil`, the catalog falls back to size-only integrity (the
+    /// check in `ModelStore.bootstrap`).
+    let sha256: String?
 
     init(
         id: String,
@@ -69,7 +76,8 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         chatTemplate: ChatTemplate.Family,
         license: ModelLicense,
         maxContextTokens: Int,
-        recommendedContextTokens: Int
+        recommendedContextTokens: Int,
+        sha256: String? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -88,6 +96,7 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         self.license = license
         self.maxContextTokens = maxContextTokens
         self.recommendedContextTokens = recommendedContextTokens
+        self.sha256 = sha256
     }
 
     // MARK: - Codable
@@ -109,6 +118,7 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         // conformance handles the string ↔ enum round-trip.
         case license = "licenseLabel"
         case maxContextTokens, recommendedContextTokens
+        case sha256
     }
 
     init(from decoder: Decoder) throws {
@@ -136,6 +146,7 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         self.license = try c.decode(ModelLicense.self, forKey: .license)
         self.maxContextTokens = try c.decode(Int.self, forKey: .maxContextTokens)
         self.recommendedContextTokens = try c.decode(Int.self, forKey: .recommendedContextTokens)
+        self.sha256 = try c.decodeIfPresent(String.self, forKey: .sha256)?.lowercased()
     }
 
     var sizeGB: Double { Double(sizeBytes) / 1_073_741_824.0 }

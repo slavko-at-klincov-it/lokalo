@@ -11,6 +11,7 @@ struct ModelDetailView: View {
     @Environment(DownloadManager.self) private var downloadManager
     @Binding var path: NavigationPath
     @State private var showDeleteConfirm = false
+    @State private var showCellularConfirm = false
 
     var body: some View {
         ScrollView {
@@ -38,6 +39,26 @@ struct ModelDetailView: View {
             Button("Abbrechen", role: .cancel) { }
         } message: {
             Text("\(entry.displayName) wird vom Gerät entfernt.")
+        }
+        .alert("Über Mobilfunk laden?",
+               isPresented: $showCellularConfirm) {
+            Button("Trotzdem laden") {
+                downloadManager.startDownload(for: entry, force: true)
+            }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Du bist gerade im Mobilfunknetz. \(entry.displayName) ist \(String(format: "%.2f GB", entry.sizeGB)) groß — das kann dein Datenvolumen verbrauchen. In den Einstellungen kannst du Downloads über Mobilfunk dauerhaft erlauben.")
+        }
+    }
+
+    /// Entry-point that every "Herunterladen" tap goes through. When the
+    /// user is on cellular and hasn't opted in, we surface the confirmation
+    /// alert instead of silently refusing the request.
+    private func requestDownload() {
+        if downloadManager.cellularDownloadsBlocked {
+            showCellularConfirm = true
+        } else {
+            downloadManager.startDownload(for: entry)
         }
     }
 
@@ -142,13 +163,25 @@ struct ModelDetailView: View {
                 .buttonStyle(.bordered)
                 .tint(.red)
             }
+        } else if let task, task.state == .verifying {
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Wird überprüft…")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
+            .padding(12)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
         } else if let task, case .failed(let msg) = task.state {
             VStack(alignment: .leading, spacing: 8) {
                 Label(msg, systemImage: "exclamationmark.triangle")
                     .font(.footnote)
                     .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
                 Button {
-                    downloadManager.startDownload(for: entry)
+                    requestDownload()
                 } label: {
                     Label("Erneut versuchen", systemImage: "arrow.clockwise")
                         .frame(maxWidth: .infinity)

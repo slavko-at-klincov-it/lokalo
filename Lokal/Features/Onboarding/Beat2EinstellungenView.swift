@@ -25,10 +25,16 @@ struct Beat2EinstellungenView: View {
     @State private var modelCardVisible = false
     @State private var footerVisible = false
 
-    /// Three smallest phone-compatible models, sorted ascending. Used by the
-    /// model-picker menu so the user picks among the genuinely tiny ones.
+    /// The four models shown in the picker. First choice is the curated
+    /// `suggested[]` list from `models.json` (in the order the catalog
+    /// author defined — newest / most interesting first). Falls back to
+    /// the four smallest phone-compatible entries if the suggested list
+    /// is empty or every suggested ID has been filtered out. Either way,
+    /// the list is capped at four so the picker stays compact.
     private var smallModelChoices: [ModelEntry] {
-        ModelCatalog.phoneCompatible
+        let curated = Array(ModelCatalog.suggestedEntries().prefix(4))
+        if !curated.isEmpty { return curated }
+        return ModelCatalog.phoneCompatible
             .sorted { $0.sizeBytes < $1.sizeBytes }
             .prefix(4)
             .map { $0 }

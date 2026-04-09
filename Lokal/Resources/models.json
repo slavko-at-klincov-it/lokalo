@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "generatedAt": "2026-04-09",
   "maxEffectiveBillion": 7.0,
   "suggested": [
@@ -95,7 +95,8 @@
       "chatTemplate": "qwen3",
       "licenseLabel": "Apache 2.0",
       "maxContextTokens": 262144,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "sha256": "9d8472987aed5b36a0d167543a695bcbf349939445ca5382a4245219829f4581"
     },
     {
       "id": "phi-3.5-mini-instruct-q4km",
