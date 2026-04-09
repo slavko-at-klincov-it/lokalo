@@ -23,8 +23,9 @@ enum OnboardingPreferences {
     /// drops them in the empty Library instead of auto-pushing a detail view.
     static let preferredFirstModelIDKey = "Lokal.onboarding.preferredFirstModelID"
 
-    /// Hard-coded fallback for `preferredFirstModelIDKey`. Defaults to the
-    /// newest small Qwen — Qwen 3.5 0.8B (~557 MB Q4_K_M, 201 languages,
-    /// 256K context, hybrid Gated DeltaNet architecture).
-    static let defaultFirstModelID = "qwen-3.5-0.8b-instruct-q4km"
+    /// Hard-coded fallback for `preferredFirstModelIDKey`. The default is
+    /// empty so the onboarding picker starts in a "Bitte wählen" state
+    /// instead of silently pre-filling a model — the user has to make an
+    /// explicit choice (either "Später wählen" or the featured entry).
+    static let defaultFirstModelID = ""
 }
