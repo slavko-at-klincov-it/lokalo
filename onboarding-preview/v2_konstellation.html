@@ -20,7 +20,8 @@
     height: 100%;
   }
 
-  /* "Lokalo" — same font/weight/color as the caption below, just bigger.
+  /* "Lokalo" — same font as the caption below (inherits body system font),
+     just bigger and with a soft cool glow that picks up the navy background.
      Centered in the empty middle of the brain blob (cy = 50% - 60px). */
   .title {
     position: absolute;
@@ -28,13 +29,18 @@
     right: 0;
     top: calc(50% - 60px);
     text-align: center;
-    color: rgba(255, 255, 255, 0.86);
-    font-size: 48px;
-    letter-spacing: 0.3px;
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 44px;
+    font-weight: 300;
+    letter-spacing: 0.8px;
     line-height: 1;
+    text-shadow:
+      0 0 18px rgba(255, 255, 255, 0.32),
+      0 0 36px rgba(170, 195, 255, 0.18),
+      0 0 64px rgba(120, 160, 255, 0.10);
     opacity: 0;
     transform: translateY(-50%);
-    transition: opacity 0.8s ease-in;
+    transition: opacity 1.0s ease-in;
     pointer-events: none;
   }
   .title.visible { opacity: 1; }
@@ -192,18 +198,19 @@ function typeOut(target, el, charDelay) {
   step();
 }
 
-// Caption types out first (constellation is also forming during this time)
+// Caption types out first (constellation is also forming during this time).
+// 3-line split for visual rhythm: 10 / 18 / 13 chars feels balanced.
 setTimeout(() => {
   caption.style.opacity = '1';
-  typeOut('Lokale KI,\nohne Konto, Cloud, oder Werbung.', caption, 50);
+  typeOut('Lokale KI,\nohne Konto, Cloud,\noder Werbung.', caption, 50);
 }, 3000);
 
 // Title appears AFTER caption is fully typed and constellation is settled.
-// Caption: 38 chars × 50 ms ≈ 1.9 s, so fully typed at ~4.9 s. Add a small
-// breath then fade in the title at 5.2 s.
+// Caption: 43 chars × 50 ms ≈ 2.15 s, so fully typed at ~5.15 s. Add a beat
+// of breath then fade in the title at 5.5 s.
 setTimeout(() => {
   title.classList.add('visible');
-}, 5200);
+}, 5500);
 
 // Dissolve everything
 setTimeout(() => {
