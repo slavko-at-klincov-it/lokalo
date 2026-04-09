@@ -203,6 +203,38 @@ Erste Version! Lokalo bringt lokale Sprachmodelle aufs iPhone:
 • Anpassbare Sampling-Parameter und System Prompt
 ```
 
+## App Review Information — Reviewer Notes
+
+Paste this into App Store Connect → App Review Information → Notes (English, since reviewers default to English).
+
+```
+Lokalo runs language models entirely on the device. There is no Lokalo backend, no central account, and no Lokalo-operated OAuth app.
+
+CORE FLOW (zero setup, what you most likely want to test):
+1. Launch the app — onboarding plays a 5-second intro animation, then a settings screen ("Personalisieren"). Tap "Loslegen".
+2. The library opens with the recommended first model preselected (Qwen 2.5 0.5B Instruct, ~380 MB Q4_K_M). Tap "Herunterladen".
+3. Download takes ~30 seconds on Wi-Fi. After it completes, tap the model in the library to load it.
+4. The Chat view opens. Type any prompt and tap send. Streaming response runs entirely on-device via llama.cpp + Apple Metal. No network call is made during inference.
+
+OPTIONAL FEATURES (require user setup):
+
+A) RAG with local files — works with no setup.
+   Chat → top-right "books" icon → Wissen → tap "+" → "Ordner aus Files-App". Pick any folder. Lokalo will download a small embedding model on first use (~85 MB) and index the folder locally.
+
+B) RAG with cloud sources (GitHub / Google Drive / OneDrive) — requires the user to register their own OAuth app.
+   By design, Lokalo has no central OAuth client because that would require a Lokalo backend. Each user registers their own OAuth app at their provider and pastes the Client-ID into Settings → Erweiterungen → Verbindungen → Konfigurieren. The Connections screen shows "Konfigurieren" instead of "Verbinden" until a Client-ID is set, with an inline explanation. You do NOT need to test the full OAuth flow — the Konfigurieren button reveals the per-provider setup form.
+
+C) MCP servers — accept any HTTPS URL.
+   Settings → Erweiterungen → MCP-Server → "+" → enter any HTTPS URL and tap Speichern. The connection state shows in the row.
+
+DATA COLLECTION: None. Lokalo runs no servers, has no analytics SDK, and does not phone home. The only network requests Lokalo makes are:
+- HuggingFace downloads of GGUF model files (initiated by the user)
+- HuggingFace download of an embedding model file (only if user enables RAG)
+- Direct API calls to GitHub / Google / Microsoft (only if user signs into one of those connectors)
+
+All connector tokens live exclusively in the iOS Keychain (kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly), never in iCloud, never on a Lokalo server.
+```
+
 ## App Store Connect — Schritt für Schritt
 
 1. App Store Connect → My Apps → "+" → New App
@@ -212,5 +244,5 @@ Erste Version! Lokalo bringt lokale Sprachmodelle aufs iPhone:
 5. App Information → Subtitle / Categories aus diesem Dokument
 6. Version 1.0 → Description, Keywords, Support URL, Privacy URL, Promotional Text, Screenshots aus `screenshots/appstore/`
 7. Build → wenn er hochgeladen ist, hier auswählen
-8. App Review Information → Demo-Account: nicht nötig, kein Login
+8. App Review Information → Notes aus dem Block oben einfügen, Demo-Account: nicht nötig (kein Login bei Lokalo)
 9. Save → Submit for Review (oder erstmal nur TestFlight)

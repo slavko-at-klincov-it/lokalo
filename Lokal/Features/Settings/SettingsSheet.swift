@@ -12,10 +12,6 @@ struct SettingsSheet: View {
 
     // Onboarding preferences — bound here so the user can re-edit any choice
     // they made in the first-launch flow. Same UserDefaults keys as Beat 2.
-    @AppStorage(OnboardingPreferences.microphoneIntentKey)
-    private var microphoneIntent: Bool = false
-    @AppStorage(OnboardingPreferences.notificationsIntentKey)
-    private var notificationsIntent: Bool = false
     @AppStorage(OnboardingPreferences.cellularDownloadsAllowedKey)
     private var cellularAllowed: Bool = false
     @AppStorage(OnboardingPreferences.preferredFirstModelIDKey)
@@ -67,30 +63,6 @@ struct SettingsSheet: View {
                 }
 
                 Section("Personalisierung") {
-                    Toggle(isOn: $microphoneIntent) {
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Mikrofon")
-                                Text("Sprich mit dem Modell, statt zu tippen.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } icon: {
-                            Image(systemName: "mic")
-                        }
-                    }
-                    Toggle(isOn: $notificationsIntent) {
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Benachrichtigungen")
-                                Text("Lokalo meldet sich, wenn eine längere Antwort fertig ist.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } icon: {
-                            Image(systemName: "bell")
-                        }
-                    }
                     Toggle(isOn: $cellularAllowed) {
                         Label {
                             VStack(alignment: .leading, spacing: 2) {

@@ -14,13 +14,6 @@ enum OnboardingPreferences {
     /// Set to `true` once the user has tapped "Loslegen" in Beat 2.
     static let hasCompletedKey = "Lokal.hasCompletedOnboarding"
 
-    /// Whether the user has consented (intent only — the actual mic permission
-    /// is still requested by the system the first time a voice feature is used).
-    static let microphoneIntentKey = "Lokal.onboarding.microphoneIntent"
-
-    /// Same as above for push notifications.
-    static let notificationsIntentKey = "Lokal.onboarding.notificationsIntent"
-
     /// Allow large model downloads over cellular. Default `false` → WLAN-only.
     static let cellularDownloadsAllowedKey = "Lokal.onboarding.cellularDownloadsAllowed"
 

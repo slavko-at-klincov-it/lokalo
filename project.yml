@@ -69,8 +69,6 @@ targets:
           - CFBundleURLName: com.slavkoklincov.lokal.oauth
             CFBundleURLSchemes:
               - com.slavkoklincov.lokal
-        BGTaskSchedulerPermittedIdentifiers:
-          - com.slavkoklincov.lokal.indexing.refresh
     # Entitlements for increased memory limit are commented out for the
     # initial TestFlight build because they require Apple to have approved
     # the App ID for the capability. Re-enable in Xcode → Signing & Capabilities

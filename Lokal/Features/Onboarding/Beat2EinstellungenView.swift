@@ -2,28 +2,17 @@
 //  Beat2EinstellungenView.swift
 //  Lokalo
 //
-//  Second beat of the onboarding flow. Four iOS-style settings cards with
-//  toggles, plus a model picker for the suggested first model. The user's
-//  choices are persisted to UserDefaults via @AppStorage and the keys in
-//  `OnboardingPreferences`. After "Loslegen", the parent flow flips
-//  `hasCompletedOnboarding` and the chat view becomes the root.
-//
-//  None of these toggles request system permissions on their own — turning
-//  on "Mikrofon" only stores intent. The actual mic / notification system
-//  prompts are deferred to the first time the user uses a feature that needs
-//  them, per the Apple HIG.
+//  Second beat of the onboarding flow. Two iOS-style settings cards: a
+//  cellular-downloads toggle and a model picker for the suggested first
+//  model. The user's choices are persisted to UserDefaults via @AppStorage
+//  and the keys in `OnboardingPreferences`. After "Loslegen", the parent
+//  flow flips `hasCompletedOnboarding` and the chat view becomes the root.
 //
 
 import SwiftUI
 
 struct Beat2EinstellungenView: View {
     let onComplete: () -> Void
-
-    @AppStorage(OnboardingPreferences.microphoneIntentKey)
-    private var microphoneIntent: Bool = false
-
-    @AppStorage(OnboardingPreferences.notificationsIntentKey)
-    private var notificationsIntent: Bool = false
 
     @AppStorage(OnboardingPreferences.cellularDownloadsAllowedKey)
     private var cellularAllowed: Bool = false
@@ -32,10 +21,8 @@ struct Beat2EinstellungenView: View {
     private var preferredFirstModelID: String = OnboardingPreferences.defaultFirstModelID
 
     @State private var headerVisible = false
-    @State private var card1Visible = false
-    @State private var card2Visible = false
-    @State private var card3Visible = false
-    @State private var card4Visible = false
+    @State private var cellularCardVisible = false
+    @State private var modelCardVisible = false
     @State private var footerVisible = false
 
     /// Three smallest phone-compatible models, sorted ascending. Used by the
@@ -64,43 +51,23 @@ struct Beat2EinstellungenView: View {
 
                 VStack(spacing: 12) {
                     Beat2SettingCard(
-                        icon: "mic",
-                        title: "Mikrofon",
-                        desc: "Sprich mit dem Modell, statt zu tippen.",
-                        isOn: $microphoneIntent
-                    )
-                    .opacity(card1Visible ? 1 : 0)
-                    .offset(y: card1Visible ? 0 : 10)
-                    .animation(.easeOut(duration: 0.7), value: card1Visible)
-
-                    Beat2SettingCard(
-                        icon: "bell",
-                        title: "Benachrichtigungen",
-                        desc: "Lokalo meldet sich, wenn eine längere Antwort fertig ist.",
-                        isOn: $notificationsIntent
-                    )
-                    .opacity(card2Visible ? 1 : 0)
-                    .offset(y: card2Visible ? 0 : 10)
-                    .animation(.easeOut(duration: 0.7), value: card2Visible)
-
-                    Beat2SettingCard(
                         icon: "antenna.radiowaves.left.and.right",
                         title: "Modelle ohne WLAN laden",
                         desc: "Standardmäßig nur über WLAN — sind oft 1–4 GB.",
                         isOn: $cellularAllowed
                     )
-                    .opacity(card3Visible ? 1 : 0)
-                    .offset(y: card3Visible ? 0 : 10)
-                    .animation(.easeOut(duration: 0.7), value: card3Visible)
+                    .opacity(cellularCardVisible ? 1 : 0)
+                    .offset(y: cellularCardVisible ? 0 : 10)
+                    .animation(.easeOut(duration: 0.7), value: cellularCardVisible)
 
                     Beat2ModelCard(
                         choices: smallModelChoices,
                         selectedID: $preferredFirstModelID,
                         displayName: selectedModelDisplayName
                     )
-                    .opacity(card4Visible ? 1 : 0)
-                    .offset(y: card4Visible ? 0 : 10)
-                    .animation(.easeOut(duration: 0.7), value: card4Visible)
+                    .opacity(modelCardVisible ? 1 : 0)
+                    .offset(y: modelCardVisible ? 0 : 10)
+                    .animation(.easeOut(duration: 0.7), value: modelCardVisible)
                 }
                 .padding(.horizontal, 20)
 
@@ -189,11 +156,9 @@ struct Beat2EinstellungenView: View {
 
     private func runChoreography() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { headerVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.60) { card1Visible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.90) { card2Visible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.20) { card3Visible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.50) { card4Visible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.10) { footerVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.60) { cellularCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.90) { modelCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.50) { footerVisible = true }
     }
 }
 

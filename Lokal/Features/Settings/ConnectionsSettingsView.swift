@@ -10,10 +10,21 @@ import SwiftUI
 
 struct ConnectionsSettingsView: View {
     @Environment(ConnectionStore.self) private var store
-    @State private var showProviderConfig = false
 
     var body: some View {
         List {
+            Section {
+                VStack(alignment: .leading, spacing: 8) {
+                    Label("Eigene OAuth-App nötig", systemImage: "info.circle")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Text("Lokalo betreibt kein Backend und keine zentrale OAuth-App. Damit Lokalo nicht zwischen dir und deinem Provider sitzt, registrierst du bei jedem Provider deine eigene OAuth-App und trägst die Client-ID hier ein. Bei einem Provider ohne Client-ID erscheint statt „Verbinden\" der Button „Konfigurieren\".")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.vertical, 4)
+            }
+
             Section {
                 ForEach(OAuthProvider.allCases, id: \.self) { provider in
                     providerRow(provider)
@@ -71,6 +82,7 @@ struct ConnectionsSettingsView: View {
 
     @ViewBuilder
     private func providerRow(_ provider: OAuthProvider) -> some View {
+        let configured = !clientID(for: provider).isEmpty
         HStack(spacing: 12) {
             Image(systemName: provider.iconName)
                 .font(.title3)
@@ -82,10 +94,14 @@ struct ConnectionsSettingsView: View {
                     Text(conn.displayName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                } else {
-                    Text("Nicht verbunden")
+                } else if configured {
+                    Text("Bereit zum Verbinden")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                } else {
+                    Text("Client-ID erforderlich")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
                 }
             }
             Spacer()
@@ -94,14 +110,37 @@ struct ConnectionsSettingsView: View {
                     store.signOut(provider)
                 }
                 .buttonStyle(.bordered)
-            } else {
+            } else if configured {
                 Button("Verbinden") {
                     Task { await store.signIn(provider) }
                 }
                 .buttonStyle(.borderedProminent)
+            } else {
+                NavigationLink {
+                    OAuthProviderConfigView()
+                } label: {
+                    Text("Konfigurieren")
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 6)
+                        .background(Color.accentColor, in: Capsule())
+                }
+                .buttonStyle(.plain)
             }
         }
         .padding(.vertical, 4)
+    }
+
+    /// Returns the currently-stored client ID for `provider`, or `""` if the
+    /// user hasn't configured one yet. Used to switch the row between the
+    /// "Verbinden" and "Konfigurieren" states.
+    private func clientID(for provider: OAuthProvider) -> String {
+        switch provider {
+        case .github: return GitHubOAuth.clientID
+        case .googleDrive: return GoogleDriveOAuth.clientID
+        case .onedrive: return OneDriveOAuth.clientID
+        }
     }
 }
 
