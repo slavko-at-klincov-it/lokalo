@@ -101,7 +101,13 @@ struct MainTabBar: View {
         )
         .shadow(color: Color.black.opacity(0.35), radius: 22, x: 0, y: 10)
         .padding(.horizontal, 16)
-        .padding(.bottom, 6)
+        // No bottom padding — we want the pill flush against the
+        // top of iOS's home-indicator gesture area, giving the
+        // content area above as much vertical room as possible.
+        // `.safeAreaInset(edge: .bottom)` in `RootView` still keeps
+        // the TabBar itself above the unreachable 21 pt gesture
+        // strip, so we don't sacrifice tap reliability.
+        .padding(.bottom, 0)
     }
 }
 

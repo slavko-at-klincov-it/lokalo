@@ -49,6 +49,7 @@
 		82680B4B07C933990D73BDB5 /* LibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F70492DF72EE0983EB328CF /* LibraryView.swift */; };
 		8505AA6DAD6F32CE1375189F /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38412EBD2EE1559081A5B64C /* ChatView.swift */; };
 		86764AEA207765A5E1ACC33A /* LicenseComplianceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F9DBE7219988B03C55303CF /* LicenseComplianceTests.swift */; };
+		8BFFA3AFA1AD2010833B2986 /* StorageDiagnosticView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 202E13E402A78076008FA3A7 /* StorageDiagnosticView.swift */; };
 		913279F6E4650A68D1CBA1E2 /* EmbeddingModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9A563F8262C0EA848592717 /* EmbeddingModelStore.swift */; };
 		914BC7ED87D5ACCDF53360AD /* LlamaEngineEdgeCaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 319CB23794BEC78A4D5C6229 /* LlamaEngineEdgeCaseTests.swift */; };
 		93988634713A6FD6128FBE95 /* GitHubOAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 000A9BBE10AFA045FE88B646 /* GitHubOAuth.swift */; };
@@ -127,6 +128,7 @@
 		0DA9DBB3778A7C4F2CD97628 /* ModelDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDetailView.swift; sourceTree = "<group>"; };
 		16D0FBA43A69AA55CCBAD046 /* LlamaEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaEngine.swift; sourceTree = "<group>"; };
 		1CC044E3766456594DD98269 /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
+		202E13E402A78076008FA3A7 /* StorageDiagnosticView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageDiagnosticView.swift; sourceTree = "<group>"; };
 		20E4454CAAF7F410F2290C50 /* ModelPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelPickerSheet.swift; sourceTree = "<group>"; };
 		2423A596782F8D57D62E8C21 /* EmbeddingDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddingDownloader.swift; sourceTree = "<group>"; };
 		280B09DA4CF9B3BE004DD436 /* Beat1Animator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Beat1Animator.swift; sourceTree = "<group>"; };
@@ -416,6 +418,7 @@
 				7D8E08ED0A945DF166283220 /* LicensesView.swift */,
 				7C66AE09CF5EE89A7D87B96B /* MCPServerListView.swift */,
 				FFAA7A518B5E64312A4A1768 /* SettingsSheet.swift */,
+				202E13E402A78076008FA3A7 /* StorageDiagnosticView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -669,6 +672,7 @@
 				F58A13527DBD0C78EAE0544C /* RemoteCatalogService.swift in Sources */,
 				6C481564890BB778C1A101EF /* RootView.swift in Sources */,
 				49CE1E9B56EB4C118A044C4A /* SettingsSheet.swift in Sources */,
+				8BFFA3AFA1AD2010833B2986 /* StorageDiagnosticView.swift in Sources */,
 				A9A7EE132BB0C0C029F271B4 /* ToolCallParser.swift in Sources */,
 				6218EBA51E1E8A0EA11B5CF9 /* VectorStore.swift in Sources */,
 				11B373378D6DBB249CEC31C3 /* WebAuthenticator.swift in Sources */,

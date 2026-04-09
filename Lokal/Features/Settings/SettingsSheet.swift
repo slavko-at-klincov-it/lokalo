@@ -73,6 +73,20 @@ struct SettingsSheet: View {
                                 .monospacedDigit()
                         }
                     }
+                    NavigationLink {
+                        StorageDiagnosticView()
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Speicherdiagnose")
+                                Text("Zeigt jede Datei in Documents/models/ und erlaubt Orphan-Cleanup.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "stethoscope")
+                        }
+                    }
                 }
 
                 Section("Personalisierung") {

@@ -160,4 +160,98 @@ final class ModelStore {
     nonisolated static func partialFileURL(for entry: ModelEntry) -> URL {
         modelsDirectory().appendingPathComponent(entry.filename + ".partial")
     }
+
+    // MARK: - Storage diagnostic
+
+    /// One row of the storage diagnostic — a single file on disk in
+    /// `Documents/models/` with its current classification relative
+    /// to the catalog. Powers `StorageDiagnosticView`.
+    struct DiskEntry: Identifiable, Equatable {
+        enum Status: Hashable {
+            /// Matches a catalog entry on filename AND size — counts
+            /// towards `installedIDs`.
+            case installed(modelID: String)
+            /// Matches a catalog entry on filename but not on size.
+            /// Usually means the HF CDN re-uploaded the model with a
+            /// slightly different byte count, so `ModelStore.bootstrap`
+            /// refuses to register it. Candidate for cleanup.
+            case sizeMismatch(modelID: String, expectedBytes: Int64)
+            /// A `.gguf` file whose filename is not in the catalog
+            /// (different quant, older/removed entry, manual drop-in).
+            case orphanFilename
+            /// A `.partial` file left behind by an interrupted download
+            /// or a crash during hash verification.
+            case partial
+            /// Something else in the directory we don't recognise.
+            case unknown
+        }
+
+        let url: URL
+        let sizeBytes: Int64
+        let status: Status
+
+        var id: String { url.path }
+        var filename: String { url.lastPathComponent }
+        var isOrphan: Bool {
+            switch status {
+            case .installed: return false
+            default:         return true
+            }
+        }
+    }
+
+    /// Scans `Documents/models/` and returns every file with its
+    /// classification. Pure function — no mutation, safe to call
+    /// from a view's body. Sorted largest-first so the diagnostic
+    /// UI puts the biggest ghost files at the top.
+    nonisolated func scanDiskContents() -> [DiskEntry] {
+        let dir = Self.modelsDirectory()
+        guard let urls = try? FileManager.default.contentsOfDirectory(
+            at: dir,
+            includingPropertiesForKeys: [.fileSizeKey]
+        ) else { return [] }
+
+        let entries = urls.compactMap { url -> DiskEntry? in
+            guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+                  let size = (attrs[.size] as? NSNumber)?.int64Value else { return nil }
+            let ext = url.pathExtension.lowercased()
+            let filename = url.lastPathComponent
+
+            if ext == "partial" {
+                return DiskEntry(url: url, sizeBytes: size, status: .partial)
+            }
+            if ext == "gguf" {
+                if let catalogEntry = ModelCatalog.all.first(where: { $0.filename == filename }) {
+                    if size == catalogEntry.sizeBytes {
+                        return DiskEntry(url: url, sizeBytes: size,
+                                         status: .installed(modelID: catalogEntry.id))
+                    }
+                    return DiskEntry(
+                        url: url, sizeBytes: size,
+                        status: .sizeMismatch(modelID: catalogEntry.id,
+                                              expectedBytes: catalogEntry.sizeBytes)
+                    )
+                }
+                return DiskEntry(url: url, sizeBytes: size, status: .orphanFilename)
+            }
+            return DiskEntry(url: url, sizeBytes: size, status: .unknown)
+        }
+        return entries.sorted { $0.sizeBytes > $1.sizeBytes }
+    }
+
+    /// Deletes every non-installed file in `Documents/models/` —
+    /// partials, size-mismatches, orphan filenames, unknown files.
+    /// Returns the total bytes freed so the UI can surface it in a
+    /// confirmation toast.
+    @discardableResult
+    func cleanupOrphans() -> Int64 {
+        var freed: Int64 = 0
+        for entry in scanDiskContents() where entry.isOrphan {
+            if (try? FileManager.default.removeItem(at: entry.url)) != nil {
+                freed += entry.sizeBytes
+            }
+        }
+        refreshDiskUsage()
+        return freed
+    }
 }

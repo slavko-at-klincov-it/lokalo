@@ -19,10 +19,35 @@ struct ChatView: View {
 
     var body: some View {
         @Bindable var chat = chatStore
-        ZStack(alignment: .bottom) {
+        // VStack(spacing: 0) so the composer sits directly below the
+        // scroll view with no gap, and the composer is in the view
+        // hierarchy OUTSIDE any scroll view — that way it respects
+        // the outer `MainTabBar` safe-area inset installed on
+        // `RootView`, and will never land *behind* the tab bar.
+        //
+        // The status banner is overlaid at the top via `.overlay`
+        // so it floats above the scroll content like a toast
+        // instead of competing with the composer for the bottom
+        // of a `ZStack(alignment: .bottom)`.
+        VStack(spacing: 0) {
             messageList
                 .scrollDismissesKeyboard(.interactively)
-                .safeAreaInset(edge: .bottom) { composer }
+                // Tap on an empty area of the message list (or on
+                // a message bubble — they don't consume taps) while
+                // the composer is focused dismisses the keyboard.
+                // `simultaneousGesture` so normal scroll gestures
+                // keep working — the tap only fires on a touch that
+                // never moves. The `guard inputFocused` avoids
+                // swallowing interactions when the keyboard is
+                // already down.
+                .simultaneousGesture(
+                    TapGesture().onEnded {
+                        if inputFocused { inputFocused = false }
+                    }
+                )
+            composer
+        }
+        .overlay(alignment: .top) {
             if let banner = chatStore.statusBanner {
                 statusBanner(text: banner)
                     .transition(.move(edge: .top).combined(with: .opacity))
@@ -194,7 +219,6 @@ struct ChatView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(.regularMaterial)
     }
 
     private var sendEnabled: Bool {

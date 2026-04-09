@@ -49,8 +49,38 @@ struct RootView: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
+    /// True while the system software keyboard is on screen. Drives
+    /// the tab-bar hide/show animation — a keyboard + floating tab
+    /// bar + composer row eats almost half the vertical space on
+    /// an iPhone, so we get rid of the tab bar while the user is
+    /// typing and bring it back the moment the keyboard dismisses.
+    @State private var isKeyboardVisible: Bool = false
+
+    /// Explicit space reserved at the bottom of `tabContent` for the
+    /// floating `MainTabBar`. We used to reserve this via an outer
+    /// `.safeAreaInset`, but SwiftUI fails to propagate that inset
+    /// through the per-tab `NavigationStack` in iOS 17/18 — the
+    /// inner ChatView composer was rendering BEHIND the tab bar
+    /// because it saw a full-screen bottom instead of a
+    /// tab-bar-adjusted one. Explicit padding sidesteps the
+    /// propagation bug entirely.
+    ///
+    /// Value = visible pill height (~52 pt) minus the tab-bar's
+    /// downward `offset(y:)` (20 pt) so the composer hugs right up
+    /// against the top of the visually-lowered pill instead of
+    /// floating with an empty 20 pt gap above it.
+    private let tabBarReservedHeight: CGFloat = 52
+
+    /// How far to shove the tab-bar pill down into the home-indicator
+    /// safe area. 20 pt puts the pill's bottom edge right next to
+    /// the home-indicator stroke without overlapping it, which
+    /// maximises the usable vertical space above while keeping tap
+    /// targets outside the swipe-to-home gesture-critical strip
+    /// (bottom ~10 pt).
+    private let tabBarBottomOffset: CGFloat = 20
+
     var body: some View {
-        ZStack {
+        ZStack(alignment: .bottom) {
             // Dark-mode base layer: the Lokalo gradient sits behind
             // the tab content, so transparent child views (ChatView
             // message list, ScrollView-backed detail pages) inherit
@@ -64,14 +94,38 @@ struct RootView: View {
             tabContent
                 .transition(.opacity)
                 .id(selectedTab)
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            MainTabBar(selectedTab: $selectedTab) { newTab in
-                tabHaptic.impactOccurred(intensity: 0.55)
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
-                    selectedTab = newTab
+                // Explicit reserved space for the tab bar. Because
+                // this padding is applied *here* (not via an outer
+                // safeAreaInset), every child view — including
+                // ChatView's composer inside a NavigationStack —
+                // honors it regardless of SwiftUI's inset
+                // propagation quirks. When the keyboard is up the
+                // tab bar is hidden, so we drop the reservation to
+                // zero and let the keyboard safe area push the
+                // composer up directly.
+                .padding(.bottom, isKeyboardVisible ? 0 : tabBarReservedHeight)
+
+            if !isKeyboardVisible {
+                MainTabBar(selectedTab: $selectedTab) { newTab in
+                    tabHaptic.impactOccurred(intensity: 0.55)
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.88)) {
+                        selectedTab = newTab
+                    }
                 }
+                .offset(y: tabBarBottomOffset)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
+        }
+        .animation(.easeOut(duration: 0.25), value: isKeyboardVisible)
+        .onReceive(
+            NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
+        ) { _ in
+            isKeyboardVisible = true
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
+        ) { _ in
+            isKeyboardVisible = false
         }
         .task(id: modelStore.activeID) {
             await chatStore.ensureEngineLoaded()
