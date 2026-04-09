@@ -26,9 +26,9 @@ final class OnboardingFirstRunTests: XCTestCase {
 
     func testBeat1ShowsThePromises() {
         let app = launchOnboarding()
-        let promise = app.staticTexts["Kein Konto."]
+        let promise = app.staticTexts["Läuft auf dem Gerät."]
         XCTAssertTrue(promise.waitForExistence(timeout: 10), "Beat 1 promise not visible")
-        XCTAssertTrue(app.staticTexts["Keine Cloud."].exists)
+        XCTAssertTrue(app.staticTexts["Kein Lokalo-Backend."].exists)
         XCTAssertTrue(app.staticTexts["Keine Werbung."].exists)
         XCTAssertTrue(app.staticTexts["Keine Telemetrie."].exists)
     }
@@ -37,7 +37,7 @@ final class OnboardingFirstRunTests: XCTestCase {
         let app = launchOnboarding()
 
         // Wait for Beat 1's content so the tap doesn't race the entry animation.
-        let promise = app.staticTexts["Kein Konto."]
+        let promise = app.staticTexts["Läuft auf dem Gerät."]
         XCTAssertTrue(promise.waitForExistence(timeout: 10))
         // Wait for the swipe hint to appear so the tap actually advances.
         let hint = app.staticTexts["Zum Starten wischen"]

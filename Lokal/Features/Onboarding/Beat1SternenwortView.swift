@@ -8,7 +8,8 @@
 //    1. A particle field drifts in from the screen edges and gathers into a
 //       brain-blob ring centered slightly above the screen middle.
 //    2. The "Lokalo" wordmark fades in at the brain's empty center after 2.5 s.
-//    3. Four privacy promises ("Kein Konto." …) appear sequentially below the
+//    3. Four precise promises about what Lokalo does and doesn't do
+//       ("Läuft auf dem Gerät." …) appear sequentially below the
 //       constellation between 3.0–4.2 s.
 //    4. A pulsing "ZUM STARTEN WISCHEN →" hint appears at 5.0 s and breathes
 //       gently between 0.85 and 0.55 opacity, with a slowly-drifting arrow.
@@ -123,10 +124,10 @@ struct Beat1SternenwortView: View {
             Spacer()
 
             VStack(spacing: 14) {
-                promiseLine("Kein Konto.",       visible: p1Visible)
-                promiseLine("Keine Cloud.",      visible: p2Visible)
-                promiseLine("Keine Werbung.",    visible: p3Visible)
-                promiseLine("Keine Telemetrie.", visible: p4Visible)
+                promiseLine("Läuft auf dem Gerät.", visible: p1Visible)
+                promiseLine("Kein Lokalo-Backend.", visible: p2Visible)
+                promiseLine("Keine Werbung.",       visible: p3Visible)
+                promiseLine("Keine Telemetrie.",    visible: p4Visible)
             }
             .padding(.bottom, 52)
 

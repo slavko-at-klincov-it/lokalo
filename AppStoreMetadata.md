@@ -25,15 +25,15 @@ KI offline auf deinem iPhone
 
 ### Promotional Text (max 170 chars — can update without re-review)
 ```
-Lade Sprachmodelle direkt aufs Handy und chatte komplett offline mit ihnen. Keine Cloud, keine Konten, keine Telemetrie. Alles bleibt auf deinem iPhone.
+Sprachmodelle direkt aufs Handy laden und mit ihnen chatten. Inferenz läuft auf dem Gerät — kein Konto bei Lokalo, kein Lokalo-Backend.
 ```
-(150 chars)
+(135 chars)
 
 ### Description (max 4000 chars)
 ```
-Lokalo bringt Sprachmodelle wie Llama, Phi, Qwen und Gemma direkt auf dein iPhone — ganz ohne Cloud.
+Lokalo bringt Sprachmodelle wie Llama, Phi, Qwen und Gemma direkt auf dein iPhone — und führt sie komplett auf dem Gerät aus. Kein Konto bei Lokalo, kein Lokalo-Server, kein Backend. Es gibt schlicht nichts, was zwischen deinem Chat und deinem iPhone liegt.
 
-Lade ein Modell einmal herunter und chatte danach komplett offline. Deine Eingaben verlassen dein Gerät nicht. Kein Konto, keine Anmeldung, keine Telemetrie. Nichts.
+Lade ein Modell einmal herunter und chatte offline. Standardmäßig verlässt nichts dein iPhone.
 
 KURATIERTE MODELLE
 Eine handverlesene Auswahl an kompakten Sprachmodellen, optimiert für die Hardware deines iPhones:
@@ -55,11 +55,21 @@ WAS DU EINSTELLEN KANNST
 • Mehrere Modelle parallel laden, jederzeit umschalten
 • Konversationsverlauf lokal speichern und wieder löschen
 
+OPTIONAL: EIGENE QUELLEN ANBINDEN
+Wenn du willst, kannst du Lokalo Zugriff auf eigene Dateien geben — als Wissensbasis für Retrieval Augmented Generation (RAG):
+• Lokale Ordner aus der Files-App
+• GitHub Repositories (Read-Only)
+• Google Drive Ordner (Read-Only)
+• OneDrive / SharePoint Ordner (Read-Only)
+• Eigene MCP-Server über HTTPS
+
+Diese Verbindungen sind ausschließlich optional und werden direkt zwischen deinem iPhone und dem jeweiligen Anbieter hergestellt — nie über einen Lokalo-Server, weil es keinen gibt. Auth-Tokens speichert Lokalo ausschließlich in deinem iOS Keychain, ohne iCloud-Sync. Indizierung und Embedding-Berechnung laufen lokal auf deinem Gerät.
+
 WAS LOKALO NICHT MACHT
-• Kein Datenversand. Niemals.
+• Kein Konto bei Lokalo, keine Anmeldung bei mir
 • Kein Tracking, keine Analytics, keine Werbung
 • Keine versteckten In-App-Käufe
-• Keine Konten oder Logins
+• Kein Backend — Lokalo betreibt keine Server, die dich oder deine Daten sehen könnten
 
 WIE VIEL SPEICHER BRAUCHE ICH?
 Modelle sind zwischen 380 MB und 2.5 GB groß. Der Download läuft im Hintergrund mit Pause/Resume. Du löschst alles mit einem Wisch.
@@ -70,9 +80,9 @@ FÜR WEN
 • Reisende ohne stabile Internetverbindung
 • Alle die wissen wollen wie sich on-device KI 2026 anfühlt
 
-Lokalo ist die persönlichste KI die du haben kannst — weil sie nirgendwo anders existiert als auf deinem iPhone.
+Lokalo läuft auf deinem iPhone und gehört nur dir.
 ```
-(~1900 chars)
+(~2700 chars)
 
 ### Keywords (max 100 chars, comma-separated)
 ```
@@ -117,15 +127,15 @@ On-device AI for your iPhone
 
 ### Promotional Text (max 170 chars)
 ```
-Download language models straight to your phone and chat with them fully offline. No cloud, no accounts, no telemetry. Everything stays on your iPhone.
+Download language models straight to your phone and chat with them on-device. No Lokalo account, no Lokalo backend — Lokalo runs no servers that can see your data.
 ```
-(150 chars)
+(163 chars)
 
 ### Description (max 4000 chars)
 ```
-Lokalo brings language models like Llama, Phi, Qwen and Gemma straight to your iPhone — without the cloud.
+Lokalo brings language models like Llama, Phi, Qwen and Gemma straight to your iPhone — and runs them entirely on the device. No Lokalo account, no Lokalo server, no backend. There is simply nothing sitting between your chat and your iPhone.
 
-Download a model once and chat with it completely offline. Your inputs never leave your device. No account, no sign-in, no telemetry. Nothing.
+Download a model once and chat offline. By default, nothing leaves your iPhone.
 
 CURATED MODELS
 A handpicked selection of compact language models optimized for iPhone hardware:
@@ -147,11 +157,21 @@ WHAT YOU CAN TUNE
 • Keep multiple models loaded, switch any time
 • Local conversation history with one-tap clear
 
+OPTIONAL: BRING YOUR OWN SOURCES
+If you want, you can give Lokalo access to your own files — as a knowledge base for Retrieval Augmented Generation (RAG):
+• Local folders from the Files app
+• GitHub repositories (read-only)
+• Google Drive folders (read-only)
+• OneDrive / SharePoint folders (read-only)
+• Your own MCP servers over HTTPS
+
+These connections are entirely optional and flow directly between your iPhone and the provider you choose — never through a Lokalo server, because there isn't one. Auth tokens live exclusively in your iOS Keychain, with no iCloud sync. Indexing and embedding all run locally on your device.
+
 WHAT LOKALO DOES NOT DO
-• No data leaves the device. Ever.
+• No Lokalo account, no sign-up with us
 • No tracking, no analytics, no ads
 • No hidden in-app purchases
-• No accounts, no logins
+• No backend — Lokalo runs no servers that can see you or your data
 
 HOW MUCH STORAGE
 Models range from 380 MB to 2.5 GB. Downloads run in the background with pause/resume. Sweep to delete.
@@ -162,12 +182,12 @@ WHO IT'S FOR
 • Travelers without stable connectivity
 • Anyone curious how on-device AI feels in 2026
 
-Lokalo is the most personal AI you can have — because it doesn't exist anywhere else but on your iPhone.
+Lokalo runs on your iPhone and belongs only to you.
 ```
 
 ### Keywords (max 100 chars)
 ```
-LLM,offline,AI,chat,llama,gguf,phi,qwen,gemma,local,private,on-device,no cloud,ML
+LLM,offline,AI,chat,llama,gguf,phi,qwen,gemma,local,private,on-device,rag,mcp
 ```
 
 ---
@@ -177,7 +197,8 @@ LLM,offline,AI,chat,llama,gguf,phi,qwen,gemma,local,private,on-device,no cloud,M
 Erste Version! Lokalo bringt lokale Sprachmodelle aufs iPhone:
 • 13 kuratierte GGUF-Modelle direkt von Hugging Face
 • Streaming Chat mit Apple Metal Beschleunigung
-• Komplett offline — nichts verlässt dein Gerät
+• Inferenz läuft komplett auf dem Gerät — kein Lokalo-Backend
+• Optional: eigene Quellen aus Files, GitHub, Drive oder OneDrive für RAG
 • Native SwiftUI, Light + Dark Mode
 • Anpassbare Sampling-Parameter und System Prompt
 ```

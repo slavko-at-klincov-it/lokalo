@@ -27,7 +27,7 @@ struct AboutView: View {
                         .foregroundStyle(.secondary)
                 }
 
-                Text("Lokalo lädt Sprachmodelle direkt auf dein iPhone und führt sie offline aus. Keine Cloud, keine Konten, keine Telemetrie. Alles was du eintippst und was das Modell antwortet, bleibt auf deinem Gerät.")
+                Text("Lokalo lädt Sprachmodelle direkt auf dein iPhone und führt sie auf dem Gerät aus. Kein Lokalo-Konto, kein Lokalo-Backend, keine Telemetrie. Optional kannst du eigene Quellen (Files, GitHub, Drive, OneDrive) für RAG verbinden — diese laufen direkt zwischen deinem iPhone und dem Anbieter, nie über einen Lokalo-Server, weil es keinen gibt.")
                     .font(.body)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)

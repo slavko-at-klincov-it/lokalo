@@ -1,7 +1,10 @@
 # Lokalo
 
 Native iOS app that downloads GGUF language models from HuggingFace and runs
-them on-device with llama.cpp. No cloud, no accounts, no telemetry.
+them on-device with llama.cpp. No Lokalo backend, no Lokalo account, no telemetry.
+Optional: connect your own GitHub / Google Drive / OneDrive folders or any
+HTTPS MCP server as a RAG source — those flow directly between the device and
+the provider, never through a Lokalo server (there isn't one).
 
 * **Bundle ID:** `com.slavkoklincov.lokal`
 * **Min iOS:** 17.0

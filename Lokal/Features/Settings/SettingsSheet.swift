@@ -198,7 +198,7 @@ struct SettingsSheet: View {
                 }
 
                 Section {
-                    Text("Lokalo · On-device AI. Nichts verlässt dein iPhone.")
+                    Text("Lokalo · On-device AI. Inferenz läuft auf deinem iPhone.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .center)
