@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "schemaNotes": "Manual sampling overrides keyed by model id. Each entry can be partial — only the fields that should override the HF/llama.cpp default. The 'note' field is for humans only and is stripped before merging into models.json.",
+  "overrides": {
+    "phi-3.5-mini-instruct-q4km": {
+      "temperature": 0.7,
+      "topP": 0.95,
+      "topK": 40,
+      "minP": 0.05,
+      "note": "Microsoft README empfiehlt greedy temp=0.0 für Reasoning. Lokalo überschreibt für Chat-UX mit llama.cpp-Defaults plus temp 0.7."
+    },
+    "phi-4-mini-instruct-q4km": {
+      "temperature": 0.7,
+      "topP": 0.95,
+      "topK": 40,
+      "minP": 0.05,
+      "note": "Microsoft README empfiehlt greedy temp=0.0. Lokalo überschreibt für Chat-UX."
+    },
+    "gemma-2-2b-it-q4km": {
+      "temperature": 1.0,
+      "topP": 0.95,
+      "topK": 64,
+      "minP": 0.05,
+      "note": "temperature aus gemma_pytorch reference code (HF generation_config.json hat keine sampling-Werte)."
+    },
+    "gemma-3-1b-it-q4km": {
+      "temperature": 1.0,
+      "topP": 0.95,
+      "topK": 64,
+      "minP": 0.05,
+      "note": "Gemma 3 family — temperature aus Google reference code, top_k/top_p aus HF generation_config.json."
+    },
+    "gemma-3-4b-it-q4km": {
+      "temperature": 1.0,
+      "topP": 0.95,
+      "topK": 64,
+      "minP": 0.05,
+      "note": "Gemma 3 family — temperature aus Google reference code, top_k/top_p aus HF generation_config.json."
+    },
+    "smollm2-1.7b-instruct-q4km": {
+      "temperature": 0.7,
+      "topP": 0.9,
+      "topK": 50,
+      "minP": 0.05,
+      "note": "HF README zeigt 0.2 für die README-Beispiele. Lokalo nutzt 0.7 für allgemeineren Chat-Use."
+    },
+    "tinyllama-1.1b-chat-q4km": {
+      "temperature": 0.7,
+      "topP": 0.95,
+      "topK": 40,
+      "minP": 0.05,
+      "note": "Kein offizieller Wert in HF generation_config.json. Lokalo nutzt llama.cpp-Defaults plus temp 0.7."
+    },
+    "qwen-2.5-0.5b-instruct-q4km": {
+      "repetitionPenalty": 1.1,
+      "note": "Qwen 2.5 spezifiziert offiziell repetition_penalty=1.1 in HF generation_config.json. Andere Werte (temp/topP/topK) kommen automatisch von HF."
+    },
+    "qwen-2.5-1.5b-instruct-q4km": {
+      "repetitionPenalty": 1.1,
+      "note": "Qwen 2.5 family — repetition_penalty=1.1."
+    }
+  }
+}

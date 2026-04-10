@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.slavkoklincov.lokalo-catalog</string>
+
+    <!--
+        Daily run of tools/catalog/run.sh at 04:00.
+        Uses /bin/bash -lc so the shell picks up PATH and SSH agent
+        configuration from ~/.zprofile / ~/.bashrc — git push needs the
+        SSH key set up there.
+    -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>cd "$HOME/Code/OllamaAmIphone" &amp;&amp; ./tools/catalog/run.sh</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>4</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!--
+        Don't run on launchctl load — only at the scheduled time. Set this
+        to <true/> if you want a one-shot run when you re-load the plist.
+    -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!--
+        Capture all output in a single rotating log. The wrapper itself
+        prints timestamps so you can see which run produced which line.
+    -->
+    <key>StandardOutPath</key>
+    <string>/Users/slavkoklincov/Library/Logs/lokalo-catalog.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/slavkoklincov/Library/Logs/lokalo-catalog.log</string>
+</dict>
+</plist>
