@@ -69,6 +69,7 @@ enum MainTab: CaseIterable, Hashable {
 struct MainTabBar: View {
     @Binding var selectedTab: MainTab
     let onTabSelected: (MainTab) -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     /// Accent blue reused from `Beat2EinstellungenView` / `Beat2SettingCard`
     /// so the tab bar feels like a piece of the same system, not an
@@ -81,7 +82,8 @@ struct MainTabBar: View {
                 MainTabBarButton(
                     tab: tab,
                     isActive: selectedTab == tab,
-                    accent: accent
+                    accent: accent,
+                    colorScheme: colorScheme
                 ) {
                     guard selectedTab != tab else { return }
                     onTabSelected(tab)
@@ -91,15 +93,29 @@ struct MainTabBar: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(.ultraThinMaterial)
-        )
+        .background {
+            if colorScheme == .dark {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(.ultraThinMaterial)
+            } else {
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .fill(Color(uiColor: .systemGray5))
+            }
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                .stroke(
+                    colorScheme == .dark
+                        ? Color.white.opacity(0.12)
+                        : Color.black.opacity(0.10),
+                    lineWidth: 1
+                )
         )
-        .shadow(color: Color.black.opacity(0.35), radius: 22, x: 0, y: 10)
+        .shadow(
+            color: Color.black.opacity(colorScheme == .dark ? 0.35 : 0.12),
+            radius: colorScheme == .dark ? 22 : 10,
+            x: 0, y: colorScheme == .dark ? 10 : 4
+        )
         .padding(.horizontal, 16)
         // No bottom padding — we want the pill flush against the
         // top of iOS's home-indicator gesture area, giving the
@@ -115,6 +131,7 @@ private struct MainTabBarButton: View {
     let tab: MainTab
     let isActive: Bool
     let accent: Color
+    let colorScheme: ColorScheme
     let onTap: () -> Void
 
     var body: some View {
@@ -141,15 +158,19 @@ private struct MainTabBarButton: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
             }
-            .foregroundStyle(
-                isActive
-                    ? Color.white.opacity(0.94)
-                    : Color.white.opacity(0.45)
-            )
+            .foregroundStyle(foregroundColor)
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
         }
         .buttonStyle(MainTabBarButtonStyle())
+    }
+
+    private var foregroundColor: Color {
+        if colorScheme == .dark {
+            return isActive ? Color.white.opacity(0.94) : Color.white.opacity(0.45)
+        } else {
+            return isActive ? Color.primary.opacity(0.85) : Color.primary.opacity(0.40)
+        }
     }
 }
 

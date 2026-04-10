@@ -114,6 +114,7 @@ struct ChatView: View {
             // "content under the navigation bar" behaviour.
             customTopBar
         }
+        .lokaloThemedBackground()
         .modelSwitchOverlay()
         .navigationBarHidden(true)
         .sheet(isPresented: $showChatSettings) {
@@ -214,15 +215,18 @@ struct ChatView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
-                .background(
-                    Capsule(style: .continuous)
-                        .fill(.ultraThinMaterial)
-                )
+                .background {
+                    if colorScheme == .dark {
+                        Capsule(style: .continuous).fill(.ultraThinMaterial)
+                    } else {
+                        Capsule(style: .continuous).fill(Color(uiColor: .systemGray5))
+                    }
+                }
                 .overlay(
                     Capsule(style: .continuous)
-                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+                        .strokeBorder(chipStroke, lineWidth: colorScheme == .dark ? 0.5 : 1.0)
                 )
-                .shadow(color: .black.opacity(0.18), radius: 7, x: 0, y: 2)
+                .shadow(color: chipShadow, radius: colorScheme == .dark ? 7 : 4, x: 0, y: 2)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Modell wechseln")
@@ -298,6 +302,8 @@ struct ChatView: View {
     /// gentle shadow for depth. 46pt diameter — comfortably above Apple's
     /// 44pt minimum tap target and visually prominent enough to anchor the
     /// top bar without feeling heavy.
+    @Environment(\.colorScheme) private var colorScheme
+
     @ViewBuilder
     private func topBarIconButton(
         systemName: String,
@@ -308,21 +314,38 @@ struct ChatView: View {
         Button(action: action) {
             Image(systemName: systemName)
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(colorScheme == .dark ? Color.accentColor : .primary)
                 .frame(width: 46, height: 46)
-                .background(
-                    Circle()
-                        .fill(.ultraThinMaterial)
-                )
+                .background {
+                    if colorScheme == .dark {
+                        Circle().fill(.ultraThinMaterial)
+                    } else {
+                        Circle().fill(Color(uiColor: .systemGray5))
+                    }
+                }
                 .overlay(
                     Circle()
-                        .strokeBorder(Color.white.opacity(0.08), lineWidth: 0.5)
+                        .strokeBorder(chipStroke, lineWidth: colorScheme == .dark ? 0.5 : 1.0)
                 )
-                .shadow(color: .black.opacity(0.18), radius: 7, x: 0, y: 2)
+                .shadow(color: chipShadow, radius: colorScheme == .dark ? 7 : 4, x: 0, y: 2)
         }
         .buttonStyle(.plain)
         .accessibilityLabel(accessibilityLabel)
         .modifier(OptionalAccessibilityHintModifier(hint: accessibilityHint))
+    }
+
+    // MARK: - Chip styling (dark/light adaptive)
+
+    private var chipStroke: Color {
+        colorScheme == .dark
+            ? Color.white.opacity(0.08)
+            : Color.black.opacity(0.10)
+    }
+
+    private var chipShadow: Color {
+        colorScheme == .dark
+            ? Color.black.opacity(0.18)
+            : Color.black.opacity(0.06)
     }
 
     private var messageList: some View {
@@ -361,6 +384,7 @@ struct ChatView: View {
             .onChange(of: chatStore.streamingBuffer) { _, _ in
                 proxy.scrollTo("BOTTOM", anchor: .bottom)
             }
+            .scrollContentBackground(.hidden)
         }
     }
 
