@@ -49,6 +49,7 @@ struct ChatView: View {
                         if inputFocused { inputFocused = false }
                     }
                 )
+            // contextGauge — temporarily disabled to isolate flicker bug
             composer
         }
         .overlay(alignment: .top) {
@@ -139,6 +140,7 @@ struct ChatView: View {
                         knowledgeBaseID: kbStore.ragEnabled ? kbStore.activeBaseID : nil
                     )
                 }
+                chatStore.syncMessagesFromActiveSession()
                 await chatStore.switchTo(modelID: id)
             } else {
                 await chatStore.ensureEngineLoaded()
@@ -377,9 +379,11 @@ struct ChatView: View {
                 .padding(.bottom, 8)
             }
             .onChange(of: chatStore.messages.count) { _, _ in
-                withAnimation(.easeOut(duration: 0.18)) {
-                    proxy.scrollTo("BOTTOM", anchor: .bottom)
-                }
+                // No withAnimation — the animation was colliding with
+                // streaming token updates on the first prompt, causing
+                // flicker + cursor jumping. Instant scroll is fine here;
+                // the streaming onChange below handles smooth following.
+                proxy.scrollTo("BOTTOM", anchor: .bottom)
             }
             .onChange(of: chatStore.streamingBuffer) { _, _ in
                 proxy.scrollTo("BOTTOM", anchor: .bottom)
@@ -401,6 +405,99 @@ struct ChatView: View {
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
+    }
+
+    // MARK: - Context gauge
+
+    /// Rough token estimate: ~4 characters per token is a widely-used
+    /// heuristic that holds across most BPE tokenizers. Not exact, but
+    /// close enough for a visual gauge — the user doesn't need decimal
+    /// precision, they need to know "is my context getting full?".
+    ///
+    /// Deliberately excludes `streamingBuffer` — that value changes on
+    /// every single generated token and would cause per-token animation
+    /// + layout thrash. The gauge updates once per completed turn, which
+    /// is smooth and correct.
+    private var estimatedTokens: Int {
+        let systemChars = chatStore.systemPrompt.count
+        let messageChars = chatStore.messages.reduce(0) { $0 + $1.content.count }
+        return (systemChars + messageChars) / 4
+    }
+
+    private var contextWindow: Int {
+        Int(chatStore.settings.contextTokens)
+    }
+
+    private var contextUsage: Double {
+        guard contextWindow > 0 else { return 0 }
+        return min(1.0, Double(estimatedTokens) / Double(contextWindow))
+    }
+
+    @State private var showContextDetail = false
+
+    /// A 2pt-tall gauge bar above the composer that fills left-to-right
+    /// as the context window fills up. Shifts from accent blue (plenty
+    /// of room) through orange to red (context nearly full, oldest
+    /// messages will be truncated). Invisible when < 5% full so it
+    /// doesn't distract on fresh conversations.
+    private var contextGauge: some View {
+        ZStack(alignment: .leading) {
+            // Track
+            Rectangle()
+                .fill(Color.primary.opacity(0.06))
+                .frame(height: 2)
+
+            // Fill — colour shifts with usage level, not position
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(gaugeColor)
+                    .frame(width: geo.size.width * contextUsage, height: 2)
+                    .animation(.easeInOut(duration: 0.4), value: contextUsage)
+            }
+            .frame(height: 2)
+        }
+        .frame(height: 3)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 2)
+        .opacity(contextUsage > 0.05 ? 1 : 0)
+        // Animate only on message count changes — NOT on every
+        // streaming token. This keeps the gauge perfectly still
+        // during generation and only moves when a turn completes.
+        .animation(.easeInOut(duration: 0.4), value: chatStore.messages.count)
+        .overlay(alignment: .trailing) {
+            if showContextDetail {
+                Text("~\(estimatedTokens) / \(contextWindow) Tokens")
+                    .font(.system(size: 10, weight: .medium).monospacedDigit())
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule().fill(.regularMaterial)
+                    )
+                    .offset(y: -18)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+            }
+        }
+        .contentShape(Rectangle().inset(by: -8))  // larger tap target
+        .onTapGesture {
+            guard !chatStore.isStreaming else { return }  // no tap during generation
+            withAnimation(.easeInOut(duration: 0.15)) {
+                showContextDetail = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showContextDetail = false
+                }
+            }
+        }
+    }
+
+    /// Single colour that shifts with the fill level:
+    /// blue (plenty of room) → orange (getting tight) → red (nearly full).
+    private var gaugeColor: Color {
+        if contextUsage < 0.5 { return .accentColor }
+        if contextUsage < 0.8 { return .orange }
+        return .red
     }
 
     private var composer: some View {
@@ -492,7 +589,9 @@ struct ChatView: View {
             preset: .lokaloDefault,
             knowledgeBaseID: sessionStore.activeSession?.knowledgeBaseID
         )
-        sessionStore.setActive(newSession.id)
+        // Use switchActiveSession (not sessionStore.setActive directly)
+        // so ChatStore.messages is synced to the new empty session.
+        chatStore.switchActiveSession(to: newSession.id)
     }
 
     private var ragIndicator: String {

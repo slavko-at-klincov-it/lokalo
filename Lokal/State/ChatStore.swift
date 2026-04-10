@@ -39,16 +39,18 @@ final class ChatStore {
     /// "Zurück" can restore it without guessing.
     var previousSessionID: UUID?
 
-    // MARK: - Per-chat computed properties
+    // MARK: - Per-chat state (stored, synced with sessionStore)
 
-    /// Messages of the currently-active session. Reading this is equivalent
-    /// to calling `sessionStore.messages(for: activeID)`; writing via
-    /// `send()` / `clearConversation()` is routed through the session store
-    /// so persistence happens automatically.
-    var messages: [ChatMessage] {
-        guard let id = sessionStore.activeSessionID else { return [] }
-        return sessionStore.messages(for: id)
-    }
+    /// Messages for the active session. Kept as a **stored property** so
+    /// SwiftUI's Observation tracks a single stable array — NOT a computed
+    /// property that re-creates the array from a Dictionary on every read.
+    /// The computed-property approach caused per-token flicker because
+    /// SwiftUI treated every dictionary lookup as a potential change.
+    ///
+    /// Writes go to BOTH this array AND `sessionStore.appendMessage` so the
+    /// session store stays the persisted source of truth while this array
+    /// is the render source of truth.
+    private(set) var messages: [ChatMessage] = []
 
     /// Active session's sampling settings with a writable shim so the
     /// existing `SettingsSheet` binding (`$chat.settings.temperature`, etc.)
@@ -195,16 +197,15 @@ final class ChatStore {
         }
 
         if currentLoaded == session.chatModelID {
-            // Same model (or nothing loaded yet and the target model is also
-            // the modelStore's active) — no user confirmation needed.
             sessionStore.setActive(id)
             pendingModelSwitch = nil
         } else {
-            // Different model — flip the session but gate sending on an
-            // explicit confirmation. The card reads `pendingModelSwitch`.
             sessionStore.setActive(id)
             pendingModelSwitch = session.chatModelID
         }
+        // Sync the local messages array from the session store so the
+        // ChatView immediately shows the new session's history.
+        messages = sessionStore.messages(for: id)
     }
 
     /// Called by the pending card's "Modell laden" button. Triggers the
@@ -223,6 +224,7 @@ final class ChatStore {
         if let prev = previousSessionID,
            sessionStore.sessions.contains(where: { $0.id == prev }) {
             sessionStore.setActive(prev)
+            messages = sessionStore.messages(for: prev)
         }
         previousSessionID = nil
     }
@@ -323,6 +325,14 @@ final class ChatStore {
             await engine.updateSettings(settings)
             self.loadState = .ready(modelID: target.id)
 
+            // Sync messages from the active session so the ChatView has
+            // the correct data after the engine finishes loading. Without
+            // this the stored `messages` array can be stale (empty or from
+            // a previous session) after app launch.
+            if let activeID = sessionStore.activeSessionID {
+                self.messages = sessionStore.messages(for: activeID)
+            }
+
             // Sync the active session's chatModelID with the newly loaded
             // model so a user-initiated picker swap is reflected in the
             // session. If the session already pointed at this model (which
@@ -384,9 +394,17 @@ final class ChatStore {
         if let id = sessionStore.activeSessionID {
             sessionStore.clearMessages(sessionID: id)
         }
+        messages = []
         streamingBuffer = ""
         isStreaming = false
         statusBanner = nil
+    }
+
+    /// Sync the local messages array from the session store. Called once
+    /// after session bootstrap / seed so the ChatView has data to render.
+    func syncMessagesFromActiveSession() {
+        guard let id = sessionStore.activeSessionID else { return }
+        messages = sessionStore.messages(for: id)
     }
 
     func cancelStreaming() {
@@ -412,6 +430,7 @@ final class ChatStore {
         // so a mid-inference crash / jetsam-kill still keeps the user's turn
         // on disk.
         let userMsg = ChatMessage(role: .user, content: trimmed)
+        messages.append(userMsg)
         sessionStore.appendMessage(userMsg, sessionID: sessionID)
 
         streamingBuffer = ""
@@ -581,6 +600,7 @@ final class ChatStore {
                         content: finalContent,
                         citations: citationsCapture.isEmpty ? nil : citationsCapture
                     )
+                    strongSelf.messages.append(assistantMsg)
                     strongSelf.sessionStore.appendMessage(assistantMsg, sessionID: sessionID)
                 }
                 strongSelf.streamingBuffer = ""
