@@ -17,6 +17,7 @@ struct ChatView: View {
     @State private var showKnowledge = false
     @State private var showChatDrawer = false
     @State private var showMultiChatHint = false
+    @State private var confirmClearChat = false
     @FocusState private var inputFocused: Bool
 
     @AppStorage(Self.multiChatHintSeenKey) private var multiChatHintSeen: Bool = false
@@ -133,6 +134,14 @@ struct ChatView: View {
         .sheet(isPresented: $showKnowledge) {
             KnowledgeView()
         }
+        .alert("Chat leeren?", isPresented: $confirmClearChat) {
+            Button("Abbrechen", role: .cancel) {}
+            Button("Leeren", role: .destructive) {
+                chatStore.clearConversation()
+            }
+        } message: {
+            Text("Alle Nachrichten werden gelöscht. Einstellungen, Systemprompt und Wissensbasen bleiben erhalten.")
+        }
         .task(id: modelStore.activeID) {
             if let id = modelStore.activeID {
                 // Self-heal: if the user installed their first model AFTER
@@ -184,11 +193,11 @@ struct ChatView: View {
                 }
 
                 topBarIconButton(
-                    systemName: "square.and.pencil",
-                    accessibilityLabel: "Neue Unterhaltung",
-                    accessibilityHint: "Legt einen neuen leeren Chat an."
+                    systemName: "eraser",
+                    accessibilityLabel: "Chat leeren",
+                    accessibilityHint: "Löscht alle Nachrichten, behält Einstellungen."
                 ) {
-                    createNewChat()
+                    confirmClearChat = true
                 }
             }
             .overlay(alignment: .topLeading) {
