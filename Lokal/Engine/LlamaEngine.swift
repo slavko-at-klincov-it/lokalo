@@ -31,7 +31,7 @@ enum LlamaError: LocalizedError {
     }
 }
 
-struct GenerationSettings: Codable, Equatable, Sendable {
+struct GenerationSettings: Codable, Equatable, Hashable, Sendable {
     var temperature: Float = 0.7
     var topP: Float = 0.95
     var minP: Float = 0.05
@@ -39,8 +39,48 @@ struct GenerationSettings: Codable, Equatable, Sendable {
     var maxNewTokens: Int = 512
     var contextTokens: Int32 = 4096
     var seed: UInt32 = 0xFFFF_FFFF // LLAMA_DEFAULT_SEED
+    /// Repetition penalty as used by `llama_sampler_init_penalties`.
+    /// `1.0` = no penalty (default for most models). Qwen 2.5 specifies
+    /// `1.1` officially. Values < 1.0 actively encourage repetition and
+    /// are almost always wrong.
+    var repetitionPenalty: Float = 1.0
+    /// Sliding window the repetition penalty looks back over. 64 tokens
+    /// matches llama.cpp's default and is fine for chat-length inputs.
+    var repetitionPenaltyLastN: Int32 = 64
+
+    /// Explicit empty initializer so the property-default values are
+    /// available to `init(from:)` below — Swift drops the synthesised
+    /// memberwise init when we add a custom Decodable init.
+    init() {}
 
     static let `default` = GenerationSettings()
+
+    // MARK: - Codable
+    //
+    // Custom decoder so older `chat-sessions.json` files (which were
+    // written before `repetitionPenalty` / `repetitionPenaltyLastN` existed)
+    // load cleanly with the property defaults instead of throwing on the
+    // missing keys. Encoder stays synthesised.
+
+    private enum CodingKeys: String, CodingKey {
+        case temperature, topP, minP, topK
+        case maxNewTokens, contextTokens, seed
+        case repetitionPenalty, repetitionPenaltyLastN
+    }
+
+    init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        if let v = try c.decodeIfPresent(Float.self, forKey: .temperature) { self.temperature = v }
+        if let v = try c.decodeIfPresent(Float.self, forKey: .topP) { self.topP = v }
+        if let v = try c.decodeIfPresent(Float.self, forKey: .minP) { self.minP = v }
+        if let v = try c.decodeIfPresent(Int32.self, forKey: .topK) { self.topK = v }
+        if let v = try c.decodeIfPresent(Int.self, forKey: .maxNewTokens) { self.maxNewTokens = v }
+        if let v = try c.decodeIfPresent(Int32.self, forKey: .contextTokens) { self.contextTokens = v }
+        if let v = try c.decodeIfPresent(UInt32.self, forKey: .seed) { self.seed = v }
+        if let v = try c.decodeIfPresent(Float.self, forKey: .repetitionPenalty) { self.repetitionPenalty = v }
+        if let v = try c.decodeIfPresent(Int32.self, forKey: .repetitionPenaltyLastN) { self.repetitionPenaltyLastN = v }
+    }
 }
 
 actor LlamaEngine {
@@ -178,6 +218,23 @@ actor LlamaEngine {
     private static func makeSampler(settings: GenerationSettings) -> UnsafeMutablePointer<llama_sampler> {
         let params = llama_sampler_chain_default_params()
         let chain = llama_sampler_chain_init(params)!
+
+        // Repetition penalty acts on raw logits and must come first in the
+        // chain. Default value is 1.0 (no penalty); we only add the sampler
+        // when the model has a non-trivial value (e.g. Qwen 2.5 = 1.1) so
+        // the no-op case is allocation-free.
+        if settings.repetitionPenalty != 1.0 {
+            llama_sampler_chain_add(
+                chain,
+                llama_sampler_init_penalties(
+                    settings.repetitionPenaltyLastN,
+                    settings.repetitionPenalty,
+                    0.0,  // frequency_penalty — not exposed in GenerationSettings yet
+                    0.0   // presence_penalty — not exposed in GenerationSettings yet
+                )
+            )
+        }
+
         if settings.topK > 0 {
             llama_sampler_chain_add(chain, llama_sampler_init_top_k(settings.topK))
         }

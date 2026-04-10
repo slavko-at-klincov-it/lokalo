@@ -152,47 +152,20 @@ struct SettingsSheet: View {
                     }
                 }
 
-                Section("Erweitert") {
-                    sliderRow(label: "Temperatur",
-                              value: Binding(
-                                get: { Double(chat.settings.temperature) },
-                                set: { chat.settings.temperature = Float($0) }),
-                              range: 0.0...2.0,
-                              format: "%.2f")
-                    sliderRow(label: "Top-p",
-                              value: Binding(
-                                get: { Double(chat.settings.topP) },
-                                set: { chat.settings.topP = Float($0) }),
-                              range: 0.05...1.0,
-                              format: "%.2f")
-                    sliderRow(label: "Min-p",
-                              value: Binding(
-                                get: { Double(chat.settings.minP) },
-                                set: { chat.settings.minP = Float($0) }),
-                              range: 0.0...0.5,
-                              format: "%.2f")
-                    Stepper(value: Binding(
-                        get: { chat.settings.maxNewTokens },
-                        set: { chat.settings.maxNewTokens = $0 }),
-                            in: 32...2048, step: 32) {
-                        HStack {
-                            Text("Max. Token")
-                            Spacer()
-                            Text("\(chat.settings.maxNewTokens)")
+                Section {
+                    Label {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Generierungs-Einstellungen")
+                                .font(.body)
+                            Text("Temperatur, System Prompt und weitere Parameter findest du direkt im jeweiligen Chat — tippe oben rechts auf das Zahnrad-Symbol.")
+                                .font(.caption)
                                 .foregroundStyle(.secondary)
-                                .monospacedDigit()
                         }
+                    } icon: {
+                        Image(systemName: "text.bubble")
                     }
-                    NavigationLink {
-                        Form {
-                            TextEditor(text: $chat.systemPrompt)
-                                .frame(minHeight: 200)
-                                .font(.callout)
-                        }
-                        .navigationTitle("System Prompt")
-                    } label: {
-                        Label("System Prompt", systemImage: "text.bubble")
-                    }
+                } header: {
+                    Text("Pro-Chat-Einstellungen")
                 }
 
                 Section {
@@ -228,8 +201,6 @@ struct SettingsSheet: View {
                 if showsDismiss {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button("Fertig") {
-                            chatStore.settings = chat.settings
-                            Task { await chatStore.ensureEngineLoaded() }
                             dismiss()
                         }
                     }
@@ -260,20 +231,6 @@ struct SettingsSheet: View {
             return v
         }
         return nil
-    }
-
-    private func sliderRow(label: String, value: Binding<Double>, range: ClosedRange<Double>, format: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack {
-                Text(label)
-                Spacer()
-                Text(String(format: format, value.wrappedValue))
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            Slider(value: value, in: range)
-                .tint(.accentColor)
-        }
     }
 
     private func formatBytes(_ bytes: Int64) -> String {

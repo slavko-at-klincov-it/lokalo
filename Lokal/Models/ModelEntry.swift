@@ -58,6 +58,15 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
     /// When `nil`, the catalog falls back to size-only integrity (the
     /// check in `ModelStore.bootstrap`).
     let sha256: String?
+    /// Sampling defaults recommended by the model author. When a new
+    /// `ChatSession` targets this model, these are used as the initial
+    /// values for `session.settings`. Optional — falls back to
+    /// `GenerationSettings.default` when the catalog has no value.
+    /// Maintained automatically by `tools/catalog/update_catalog.py`
+    /// from the model's HuggingFace `generation_config.json` (with a
+    /// hand-maintained `overrides.json` for the few models that don't
+    /// publish sampling values upstream).
+    let recommendedSamplingDefaults: GenerationSettings?
 
     init(
         id: String,
@@ -77,7 +86,8 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         license: ModelLicense,
         maxContextTokens: Int,
         recommendedContextTokens: Int,
-        sha256: String? = nil
+        sha256: String? = nil,
+        recommendedSamplingDefaults: GenerationSettings? = nil
     ) {
         self.id = id
         self.displayName = displayName
@@ -97,6 +107,7 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         self.maxContextTokens = maxContextTokens
         self.recommendedContextTokens = recommendedContextTokens
         self.sha256 = sha256
+        self.recommendedSamplingDefaults = recommendedSamplingDefaults
     }
 
     // MARK: - Codable
@@ -119,6 +130,7 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         case license = "licenseLabel"
         case maxContextTokens, recommendedContextTokens
         case sha256
+        case recommendedSamplingDefaults
     }
 
     init(from decoder: Decoder) throws {
@@ -147,6 +159,10 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         self.maxContextTokens = try c.decode(Int.self, forKey: .maxContextTokens)
         self.recommendedContextTokens = try c.decode(Int.self, forKey: .recommendedContextTokens)
         self.sha256 = try c.decodeIfPresent(String.self, forKey: .sha256)?.lowercased()
+        self.recommendedSamplingDefaults = try c.decodeIfPresent(
+            GenerationSettings.self,
+            forKey: .recommendedSamplingDefaults
+        )
     }
 
     var sizeGB: Double { Double(sizeBytes) / 1_073_741_824.0 }

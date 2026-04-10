@@ -20,14 +20,78 @@ final class ChatStore {
         case error(String)
     }
 
-    var messages: [ChatMessage] = []
+    // MARK: - Observable state
+
+    // UI-only: live streaming tail, not persisted token-by-token.
     var streamingBuffer: String = ""
     var isStreaming: Bool = false
-    var settings: GenerationSettings = .default
-    var systemPrompt: String = "You are Lokalo, a friendly on-device AI assistant. Answer concisely and helpfully."
     private(set) var loadState: LoadState = .idle
     /// Optional banner shown above the chat composer (e.g. "Tool: search_files…").
     private(set) var statusBanner: String?
+
+    /// Set when the user switches to a session whose `chatModelID` does not
+    /// match the currently loaded model. The `PendingModelSwitchCard` reads
+    /// this and offers "Modell laden" / "Zurück". `ChatView` disables the
+    /// composer while this is non-nil.
+    var pendingModelSwitch: String?
+
+    /// Remembers the session the user was in before the pending switch, so
+    /// "Zurück" can restore it without guessing.
+    var previousSessionID: UUID?
+
+    // MARK: - Per-chat computed properties
+
+    /// Messages of the currently-active session. Reading this is equivalent
+    /// to calling `sessionStore.messages(for: activeID)`; writing via
+    /// `send()` / `clearConversation()` is routed through the session store
+    /// so persistence happens automatically.
+    var messages: [ChatMessage] {
+        guard let id = sessionStore.activeSessionID else { return [] }
+        return sessionStore.messages(for: id)
+    }
+
+    /// Active session's sampling settings with a writable shim so the
+    /// existing `SettingsSheet` binding (`$chat.settings.temperature`, etc.)
+    /// keeps working. Writes land on the session and persist.
+    var settings: GenerationSettings {
+        get {
+            sessionStore.activeSession?.settings ?? Self.fallbackSettings
+        }
+        set {
+            guard var active = sessionStore.activeSession else { return }
+            active.settings = newValue
+            sessionStore.updateMeta(active)
+        }
+    }
+
+    /// Active session's system prompt with a writable shim. Editing the text
+    /// via `$chat.systemPrompt` automatically flips the preset to `.custom`
+    /// so a later preset change doesn't silently clobber the user's edit.
+    var systemPrompt: String {
+        get {
+            sessionStore.activeSession?.systemPromptText ?? Self.fallbackSystemPrompt
+        }
+        set {
+            guard var active = sessionStore.activeSession else { return }
+            active.systemPromptText = newValue
+            if active.systemPromptPreset != .custom,
+               newValue != active.systemPromptPreset.defaultText {
+                active.systemPromptPreset = .custom
+            }
+            sessionStore.updateMeta(active)
+        }
+    }
+
+    // MARK: - Fallbacks
+
+    /// Used when no active session exists yet (pre-seed on a fresh install).
+    /// Kept private so nothing can leak "the global system prompt" pattern
+    /// back into the rest of the code.
+    private static let fallbackSystemPrompt =
+        "Du bist Lokalo, ein freundlicher On-Device-KI-Assistent. Antworte prägnant und hilfsbereit."
+    private static let fallbackSettings = GenerationSettings.default
+
+    // MARK: - Dependencies
 
     private var engine: LlamaEngine?
     /// Strong references — owned by LokalApp's dependency graph. Forming a
@@ -35,19 +99,30 @@ final class ChatStore {
     /// class of "weak nil → silent feature degradation" bugs.
     private let modelStore: ModelStore
     private let kbStore: KnowledgeBaseStore
+    let sessionStore: ChatSessionStore
     private let indexingService: IndexingService
     private let mcpStore: MCPStore
+
     private var streamTask: Task<Void, Never>?
+
+    /// Serialises `switchTo` calls so rapid chat switches don't overlap
+    /// engine loads. A new `switchTo` cancels the previous one before
+    /// starting.
+    private var currentSwitchTask: Task<Void, Never>?
 
     init(modelStore: ModelStore,
          kbStore: KnowledgeBaseStore,
+         sessionStore: ChatSessionStore,
          indexingService: IndexingService,
          mcpStore: MCPStore) {
         self.modelStore = modelStore
         self.kbStore = kbStore
+        self.sessionStore = sessionStore
         self.indexingService = indexingService
         self.mcpStore = mcpStore
     }
+
+    // MARK: - Auto-test hook
 
     /// If the app was launched with `-LokalAutoTestPrompt "..."`, fire off
     /// that prompt automatically once the engine is ready. Used for end-to-end
@@ -66,8 +141,10 @@ final class ChatStore {
         send(prompt)
     }
 
+    // MARK: - Load state helpers
+
     var canSend: Bool {
-        if case .ready = loadState { return !isStreaming }
+        if case .ready = loadState { return !isStreaming && pendingModelSwitch == nil }
         return false
     }
 
@@ -93,6 +170,60 @@ final class ChatStore {
         }
     }
 
+    // MARK: - Session switching
+
+    /// Called by the drawer when the user taps a chat row. Switches the
+    /// active session in the session store. If the target session's model
+    /// is different from what's currently loaded, sets `pendingModelSwitch`
+    /// so the `PendingModelSwitchCard` shows — the user must explicitly
+    /// confirm the (expensive) model change.
+    func switchActiveSession(to id: UUID) {
+        guard let session = sessionStore.sessions.first(where: { $0.id == id }) else { return }
+        // Remember the previous session so "Zurück" in the pending card
+        // can put the user back where they were.
+        previousSessionID = sessionStore.activeSessionID
+
+        let currentLoaded: String?
+        switch loadState {
+        case .ready(let id), .loading(let id, _): currentLoaded = id
+        default: currentLoaded = nil
+        }
+
+        if currentLoaded == session.chatModelID {
+            // Same model (or nothing loaded yet and the target model is also
+            // the modelStore's active) — no user confirmation needed.
+            sessionStore.setActive(id)
+            pendingModelSwitch = nil
+        } else {
+            // Different model — flip the session but gate sending on an
+            // explicit confirmation. The card reads `pendingModelSwitch`.
+            sessionStore.setActive(id)
+            pendingModelSwitch = session.chatModelID
+        }
+    }
+
+    /// Called by the pending card's "Modell laden" button. Triggers the
+    /// actual engine swap via `modelStore.setActive`, which in turn runs
+    /// `switchTo` through the existing `.task(id:)` hook.
+    func confirmPendingModelSwitch() {
+        guard let target = pendingModelSwitch else { return }
+        modelStore.setActive(target)
+        pendingModelSwitch = nil
+    }
+
+    /// Called by the pending card's "Zurück" button. Reverts to the session
+    /// the user was in before, without touching the model.
+    func cancelPendingModelSwitch() {
+        pendingModelSwitch = nil
+        if let prev = previousSessionID,
+           sessionStore.sessions.contains(where: { $0.id == prev }) {
+            sessionStore.setActive(prev)
+        }
+        previousSessionID = nil
+    }
+
+    // MARK: - Engine lifecycle
+
     /// Backwards-compatible shim used by call sites that just want "make sure
     /// the active model is loaded". Internally delegates to `switchTo`.
     func ensureEngineLoaded() async {
@@ -107,7 +238,24 @@ final class ChatStore {
     /// Unload the current engine (if any) and load `modelID`. Drives the
     /// `loadState` machine through `.unloading → .loading(progress) → .ready`.
     /// Safe to call from `.task(id:)` — re-entry on the same model is a no-op.
+    ///
+    /// Race-guard: awaits any in-flight switch task and cancels it before
+    /// starting a new one. Rapid back-to-back switches (e.g. user tapping
+    /// through chats in the drawer) always end up on the latest target.
     func switchTo(modelID: String) async {
+        currentSwitchTask?.cancel()
+        if let prior = currentSwitchTask {
+            _ = await prior.value
+        }
+
+        let task = Task { @MainActor in
+            await self.performSwitch(to: modelID)
+        }
+        currentSwitchTask = task
+        _ = await task.value
+    }
+
+    private func performSwitch(to modelID: String) async {
         guard let target = ModelCatalog.entry(id: modelID),
               modelStore.isInstalled(modelID) else {
             await tearDownEngine()
@@ -137,6 +285,7 @@ final class ChatStore {
 
         do {
             let path = ModelStore.fileURL(for: target).path
+            // Use the session's sampling if available, else fall back.
             var settings = self.settings
             settings.contextTokens = Int32(target.recommendedContextTokens)
             let targetID = target.id
@@ -159,6 +308,15 @@ final class ChatStore {
             self.engine = engine
             await engine.updateSettings(settings)
             self.loadState = .ready(modelID: target.id)
+
+            // Sync the active session's chatModelID with the newly loaded
+            // model so a user-initiated picker swap is reflected in the
+            // session. If the session already pointed at this model (which
+            // is the common multi-chat path), this is a no-op.
+            if var active = sessionStore.activeSession, active.chatModelID != target.id {
+                active.chatModelID = target.id
+                sessionStore.updateMeta(active)
+            }
         } catch {
             self.engine = nil
             self.loadState = .error(error.lokaloMessage)
@@ -188,12 +346,16 @@ final class ChatStore {
         if case .error = loadState { loadState = .idle }
     }
 
+    /// Clear the current session's message history. Persisted.
     func clearConversation() {
         streamTask?.cancel()
         Task { await engine?.cancel() }
-        messages = []
+        if let id = sessionStore.activeSessionID {
+            sessionStore.clearMessages(sessionID: id)
+        }
         streamingBuffer = ""
         isStreaming = false
+        statusBanner = nil
     }
 
     func cancelStreaming() {
@@ -201,39 +363,54 @@ final class ChatStore {
         Task { await engine?.cancel() }
     }
 
+    // MARK: - Send + inference loop
+
     func send(_ text: String) {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty, let engine, let active = modelStore.activeModel else {
             FileLog.write("ChatStore.send: REJECTED (empty or no engine)")
             return
         }
+        guard let sessionID = sessionStore.activeSessionID else {
+            FileLog.write("ChatStore.send: REJECTED (no active session)")
+            return
+        }
         FileLog.write("ChatStore.send: trimmed=\(trimmed.count) chars, model=\(active.id)")
 
+        // Pre-persist the user message immediately, BEFORE inference starts,
+        // so a mid-inference crash / jetsam-kill still keeps the user's turn
+        // on disk.
         let userMsg = ChatMessage(role: .user, content: trimmed)
-        messages.append(userMsg)
+        sessionStore.appendMessage(userMsg, sessionID: sessionID)
+
         streamingBuffer = ""
         isStreaming = true
         statusBanner = nil
 
-        // Capture strong references to the dependency stores so the
-        // detached task can talk to them without weak/optional gymnastics.
-        let kbStore = self.kbStore
-        let indexingService = self.indexingService
-        let mcpStore = self.mcpStore
+        // Capture the dependencies the detached task will need. `ChatStore`
+        // and `ChatSessionStore` are `@MainActor`, so the task hops back via
+        // `MainActor.run` for every mutation.
+        let kbStoreRef = self.kbStore
+        let indexingServiceRef = self.indexingService
+        let mcpStoreRef = self.mcpStore
         let activeFamily = active.chatTemplate
         let baseSystem = systemPrompt
-        let snapshotMessages = messages
+        let snapshotMessages = sessionStore.messages(for: sessionID)
         let queryText = trimmed
+        let sessionKBID = sessionStore.activeSession?.knowledgeBaseID
 
         streamTask?.cancel()
         streamTask = Task.detached(priority: .userInitiated) { [engine, weak self] in
-            // 1) RAG augmentation: retrieve top-K chunks if a knowledge base is active.
+
+            // 1) RAG augmentation: retrieve top-K chunks if the current session
+            //    has a knowledge base linked *and* the global RAG kill-switch
+            //    allows it.
             var citations: [Citation] = []
             var augmentedSystem = baseSystem
-            if let activeKB = await kbStore.activeBase,
-               await kbStore.ragEnabled {
+            let ragGlobalEnabled = await MainActor.run { kbStoreRef.ragEnabled }
+            if let kbID = sessionKBID, ragGlobalEnabled {
                 do {
-                    let hits = try await indexingService.query(queryText, baseID: activeKB.id, topK: 5)
+                    let hits = try await indexingServiceRef.query(queryText, baseID: kbID, topK: 5)
                     if !hits.isEmpty {
                         let contextLines = hits.enumerated().map { idx, hit -> String in
                             let snippet = hit.chunk.text.replacingOccurrences(of: "\n", with: " ")
@@ -265,7 +442,7 @@ final class ChatStore {
 
             // 2) MCP tools advertisement (best-effort).
             var toolsBySignature: [String: MCPClientService.DiscoveredTool] = [:]
-            let tools = await mcpStore.discoveredTools()
+            let tools = await mcpStoreRef.discoveredTools()
             if !tools.isEmpty {
                 let descriptions = tools.map { "\($0.toolName): \($0.description)" }
                 let toolsSection = ToolCallParser.systemPromptSection(toolDescriptions: descriptions)
@@ -298,8 +475,8 @@ final class ChatStore {
                         assistantText += chunk
                         let snapshot = assistantText
                         await MainActor.run {
-                            guard let self else { return }
-                            self.streamingBuffer = snapshot
+                            guard let strongSelf = self else { return }
+                            strongSelf.streamingBuffer = snapshot
                         }
                     }
                 } catch {
@@ -317,11 +494,12 @@ final class ChatStore {
                     let toolName = tool.toolName
                     let label = "Tool: \(toolName) wird ausgeführt …"
                     await MainActor.run {
-                        self?.statusBanner = label
+                        guard let strongSelf = self else { return }
+                        strongSelf.statusBanner = label
                     }
                     let mcpArguments = MCPClientService.convert(arguments: parsed.arguments)
                     do {
-                        let result = try await mcpStore.service.callTool(
+                        let result = try await mcpStoreRef.service.callTool(
                             serverID: serverID,
                             name: toolName,
                             arguments: mcpArguments
@@ -334,8 +512,9 @@ final class ChatStore {
                             content: "Tool result for \(toolName):\n\(result)"
                         ))
                         await MainActor.run {
-                            self?.streamingBuffer = ""
-                            self?.statusBanner = nil
+                            guard let strongSelf = self else { return }
+                            strongSelf.streamingBuffer = ""
+                            strongSelf.statusBanner = nil
                         }
                         continue
                     } catch {
@@ -343,8 +522,9 @@ final class ChatStore {
                         rollingMessages.append(ChatMessage(role: .assistant, content: assistantText))
                         rollingMessages.append(ChatMessage(role: .user, content: errMsg))
                         await MainActor.run {
-                            self?.streamingBuffer = ""
-                            self?.statusBanner = nil
+                            guard let strongSelf = self else { return }
+                            strongSelf.streamingBuffer = ""
+                            strongSelf.statusBanner = nil
                         }
                         continue
                     }
@@ -354,22 +534,28 @@ final class ChatStore {
                 break
             }
 
+            // Persist the final assistant message.
+            let errMsgCapture = errorMessage
+            let didErrorCapture = didError
+            let lastAssistantCapture = lastAssistantText
+            let citationsCapture = citations
             await MainActor.run {
-                guard let self else { return }
-                let finalContent = didError
-                    ? "[Fehler: \(errorMessage)]"
-                    : (lastAssistantText.isEmpty ? self.streamingBuffer : lastAssistantText)
+                guard let strongSelf = self else { return }
+                let finalContent = didErrorCapture
+                    ? "[Fehler: \(errMsgCapture)]"
+                    : (lastAssistantCapture.isEmpty ? strongSelf.streamingBuffer : lastAssistantCapture)
                 if !finalContent.isEmpty {
-                    self.messages.append(ChatMessage(
+                    let assistantMsg = ChatMessage(
                         role: .assistant,
                         content: finalContent,
-                        citations: citations.isEmpty ? nil : citations
-                    ))
+                        citations: citationsCapture.isEmpty ? nil : citationsCapture
+                    )
+                    strongSelf.sessionStore.appendMessage(assistantMsg, sessionID: sessionID)
                 }
-                self.streamingBuffer = ""
-                self.isStreaming = false
-                self.statusBanner = nil
-                FileLog.write("stream: state cleared, messages=\(self.messages.count)")
+                strongSelf.streamingBuffer = ""
+                strongSelf.isStreaming = false
+                strongSelf.statusBanner = nil
+                FileLog.write("stream: state cleared, messages=\(strongSelf.messages.count)")
             }
         }
     }

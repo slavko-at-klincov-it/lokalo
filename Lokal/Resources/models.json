@@ -1,12 +1,12 @@
 {
-  "version": 2,
+  "version": 3,
   "generatedAt": "2026-04-09",
   "maxEffectiveBillion": 7.0,
   "suggested": [
-    "qwen-3.5-0.8b-instruct-q4km",
-    "llama-3.2-3b-instruct-q4km",
     "llama-3.2-1b-instruct-q4km",
+    "llama-3.2-3b-instruct-q4km",
     "qwen-2.5-1.5b-instruct-q4km",
+    "qwen-3-0.6b-instruct-q4km",
     "phi-4-mini-instruct-q4km",
     "gemma-3-1b-it-q4km",
     "smollm2-1.7b-instruct-q4km"
@@ -21,13 +21,24 @@
       "parametersBillion": 1.23,
       "quantization": "Q4_K_M",
       "sizeBytes": 807694464,
-      "estimatedRAMBytes": 1073741824,
+      "estimatedRAMBytes": 1050002803,
       "downloadURL": "https://huggingface.co/bartowski/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q4_K_M.gguf",
       "filename": "Llama-3.2-1B-Instruct-Q4_K_M.gguf",
       "chatTemplate": "llama3",
       "licenseLabel": "Llama 3.2 Community",
       "maxContextTokens": 131072,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 0.6,
+        "topP": 0.9,
+        "topK": 40,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "llama-3.2-3b-instruct-q4km",
@@ -38,13 +49,24 @@
       "parametersBillion": 3.21,
       "quantization": "Q4_K_M",
       "sizeBytes": 2019377696,
-      "estimatedRAMBytes": 2576980377,
+      "estimatedRAMBytes": 2625191004,
       "downloadURL": "https://huggingface.co/bartowski/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
       "filename": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
       "chatTemplate": "llama3",
       "licenseLabel": "Llama 3.2 Community",
       "maxContextTokens": 131072,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 0.6,
+        "topP": 0.9,
+        "topK": 40,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "qwen-2.5-0.5b-instruct-q4km",
@@ -55,13 +77,24 @@
       "parametersBillion": 0.49,
       "quantization": "Q4_K_M",
       "sizeBytes": 397808192,
-      "estimatedRAMBytes": 536870912,
+      "estimatedRAMBytes": 517150649,
       "downloadURL": "https://huggingface.co/bartowski/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
       "filename": "Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
       "chatTemplate": "chatml",
       "licenseLabel": "Apache 2.0",
       "maxContextTokens": 32768,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 0.7,
+        "topP": 0.8,
+        "topK": 20,
+        "minP": 0.05,
+        "repetitionPenalty": 1.1,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "qwen-2.5-1.5b-instruct-q4km",
@@ -72,31 +105,52 @@
       "parametersBillion": 1.54,
       "quantization": "Q4_K_M",
       "sizeBytes": 986048768,
-      "estimatedRAMBytes": 1395864371,
+      "estimatedRAMBytes": 1281863398,
       "downloadURL": "https://huggingface.co/bartowski/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
       "filename": "Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
       "chatTemplate": "chatml",
       "licenseLabel": "Apache 2.0",
       "maxContextTokens": 32768,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 0.7,
+        "topP": 0.8,
+        "topK": 20,
+        "minP": 0.05,
+        "repetitionPenalty": 1.1,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
-      "id": "qwen-3.5-0.8b-instruct-q4km",
-      "displayName": "Qwen 3.5 0.8B",
-      "ollamaTag": "qwen3.5:0.8b",
+      "id": "qwen-3-0.6b-instruct-q4km",
+      "displayName": "Qwen 3 0.6B",
+      "ollamaTag": "qwen3:0.6b",
       "publisher": "Alibaba",
-      "summary": "Newest small Qwen. 201 Sprachen, 256K Context, neue Gated-DeltaNet Architektur — schnell und multilingual.",
-      "parametersBillion": 0.87,
+      "summary": "Newest small Qwen, text-only. Strong multilingual chat with clean generation_config.",
+      "parametersBillion": 0.6,
       "quantization": "Q4_K_M",
-      "sizeBytes": 556982432,
-      "estimatedRAMBytes": 805306368,
-      "downloadURL": "https://huggingface.co/bartowski/Qwen_Qwen3.5-0.8B-GGUF/resolve/main/Qwen_Qwen3.5-0.8B-Q4_K_M.gguf",
-      "filename": "Qwen_Qwen3.5-0.8B-Q4_K_M.gguf",
+      "sizeBytes": 484220320,
+      "estimatedRAMBytes": 629486416,
+      "downloadURL": "https://huggingface.co/bartowski/Qwen_Qwen3-0.6B-GGUF/resolve/main/Qwen_Qwen3-0.6B-Q4_K_M.gguf",
+      "filename": "Qwen_Qwen3-0.6B-Q4_K_M.gguf",
       "chatTemplate": "qwen3",
       "licenseLabel": "Apache 2.0",
-      "maxContextTokens": 262144,
+      "maxContextTokens": 32768,
       "recommendedContextTokens": 4096,
-      "sha256": "9d8472987aed5b36a0d167543a695bcbf349939445ca5382a4245219829f4581"
+      "recommendedSamplingDefaults": {
+        "temperature": 0.6,
+        "topP": 0.95,
+        "topK": 20,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "phi-3.5-mini-instruct-q4km",
@@ -107,13 +161,24 @@
       "parametersBillion": 3.82,
       "quantization": "Q4_K_M",
       "sizeBytes": 2393232672,
-      "estimatedRAMBytes": 3006477107,
+      "estimatedRAMBytes": 3111202473,
       "downloadURL": "https://huggingface.co/bartowski/Phi-3.5-mini-instruct-GGUF/resolve/main/Phi-3.5-mini-instruct-Q4_K_M.gguf",
       "filename": "Phi-3.5-mini-instruct-Q4_K_M.gguf",
       "chatTemplate": "phi3",
       "licenseLabel": "MIT",
       "maxContextTokens": 131072,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 0.7,
+        "topP": 0.95,
+        "topK": 40,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "phi-4-mini-instruct-q4km",
@@ -124,13 +189,24 @@
       "parametersBillion": 3.84,
       "quantization": "Q4_K_M",
       "sizeBytes": 2491874688,
-      "estimatedRAMBytes": 3006477107,
+      "estimatedRAMBytes": 3239437094,
       "downloadURL": "https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF/resolve/main/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf",
       "filename": "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf",
       "chatTemplate": "phi4",
       "licenseLabel": "MIT",
       "maxContextTokens": 131072,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 0.7,
+        "topP": 0.95,
+        "topK": 40,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "gemma-2-2b-it-q4km",
@@ -141,13 +217,24 @@
       "parametersBillion": 2.61,
       "quantization": "Q4_K_M",
       "sizeBytes": 1708582752,
-      "estimatedRAMBytes": 2147483648,
+      "estimatedRAMBytes": 2221157577,
       "downloadURL": "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/gemma-2-2b-it-Q4_K_M.gguf",
       "filename": "gemma-2-2b-it-Q4_K_M.gguf",
       "chatTemplate": "gemma",
       "licenseLabel": "Gemma Terms",
       "maxContextTokens": 8192,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 1.0,
+        "topP": 0.95,
+        "topK": 64,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "gemma-3-1b-it-q4km",
@@ -158,13 +245,24 @@
       "parametersBillion": 1.0,
       "quantization": "Q4_K_M",
       "sizeBytes": 806058272,
-      "estimatedRAMBytes": 1181116006,
+      "estimatedRAMBytes": 1047875753,
       "downloadURL": "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q4_K_M.gguf",
       "filename": "gemma-3-1b-it-Q4_K_M.gguf",
       "chatTemplate": "gemma",
       "licenseLabel": "Gemma Terms",
       "maxContextTokens": 32768,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 1.0,
+        "topP": 0.95,
+        "topK": 64,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "gemma-3-4b-it-q4km",
@@ -175,13 +273,24 @@
       "parametersBillion": 4.3,
       "quantization": "Q4_K_M",
       "sizeBytes": 2489894016,
-      "estimatedRAMBytes": 3221225472,
+      "estimatedRAMBytes": 3236862220,
       "downloadURL": "https://huggingface.co/unsloth/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-Q4_K_M.gguf",
       "filename": "gemma-3-4b-it-Q4_K_M.gguf",
       "chatTemplate": "gemma",
       "licenseLabel": "Gemma Terms",
       "maxContextTokens": 131072,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 1.0,
+        "topP": 0.95,
+        "topK": 64,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "smollm2-1.7b-instruct-q4km",
@@ -192,13 +301,24 @@
       "parametersBillion": 1.71,
       "quantization": "Q4_K_M",
       "sizeBytes": 1055609824,
-      "estimatedRAMBytes": 1503238553,
+      "estimatedRAMBytes": 1372292771,
       "downloadURL": "https://huggingface.co/bartowski/SmolLM2-1.7B-Instruct-GGUF/resolve/main/SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
       "filename": "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
       "chatTemplate": "chatml",
       "licenseLabel": "Apache 2.0",
       "maxContextTokens": 8192,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 0.7,
+        "topP": 0.9,
+        "topK": 50,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "smollm3-3b-q4km",
@@ -209,13 +329,24 @@
       "parametersBillion": 3.08,
       "quantization": "Q4_K_M",
       "sizeBytes": 1915305792,
-      "estimatedRAMBytes": 2469606195,
+      "estimatedRAMBytes": 2489897529,
       "downloadURL": "https://huggingface.co/bartowski/HuggingFaceTB_SmolLM3-3B-GGUF/resolve/main/HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf",
       "filename": "HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf",
       "chatTemplate": "chatml",
       "licenseLabel": "Apache 2.0",
       "maxContextTokens": 65536,
-      "recommendedContextTokens": 4096
+      "recommendedContextTokens": 4096,
+      "recommendedSamplingDefaults": {
+        "temperature": 0.6,
+        "topP": 0.95,
+        "topK": 40,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     },
     {
       "id": "tinyllama-1.1b-chat-q4km",
@@ -226,13 +357,24 @@
       "parametersBillion": 1.1,
       "quantization": "Q4_K_M",
       "sizeBytes": 668788096,
-      "estimatedRAMBytes": 858993459,
+      "estimatedRAMBytes": 869424524,
       "downloadURL": "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
       "filename": "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
       "chatTemplate": "zephyr",
       "licenseLabel": "Apache 2.0",
       "maxContextTokens": 2048,
-      "recommendedContextTokens": 2048
+      "recommendedContextTokens": 2048,
+      "recommendedSamplingDefaults": {
+        "temperature": 0.7,
+        "topP": 0.95,
+        "topK": 40,
+        "minP": 0.05,
+        "repetitionPenalty": 1.0,
+        "repetitionPenaltyLastN": 64,
+        "maxNewTokens": 512,
+        "contextTokens": 4096,
+        "seed": 4294967295
+      }
     }
   ]
 }

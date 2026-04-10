@@ -19,7 +19,9 @@ struct LokalApp: App {
     @State private var downloadManager: DownloadManager
     @State private var embeddingDownloader: EmbeddingDownloader
     @State private var indexingService: IndexingService
+    @State private var sessionStore: ChatSessionStore
     @State private var chatStore: ChatStore
+    @State private var memoryPressureCoordinator: MemoryPressureCoordinator
     @State private var remoteCatalogService: RemoteCatalogService
 
     init() {
@@ -29,6 +31,7 @@ struct LokalApp: App {
         let connectionStore = ConnectionStore()
         let mcpStore = MCPStore()
         let remoteCatalogService = RemoteCatalogService()
+        let sessionStore = ChatSessionStore()
 
         let downloadManager = DownloadManager(modelStore: modelStore)
         let embeddingDownloader = EmbeddingDownloader(store: embeddingStore)
@@ -40,9 +43,11 @@ struct LokalApp: App {
         let chatStore = ChatStore(
             modelStore: modelStore,
             kbStore: kbStore,
+            sessionStore: sessionStore,
             indexingService: indexingService,
             mcpStore: mcpStore
         )
+        let memoryPressureCoordinator = MemoryPressureCoordinator()
 
         _modelStore         = State(wrappedValue: modelStore)
         _kbStore            = State(wrappedValue: kbStore)
@@ -52,7 +57,9 @@ struct LokalApp: App {
         _downloadManager    = State(wrappedValue: downloadManager)
         _embeddingDownloader = State(wrappedValue: embeddingDownloader)
         _indexingService    = State(wrappedValue: indexingService)
+        _sessionStore       = State(wrappedValue: sessionStore)
         _chatStore          = State(wrappedValue: chatStore)
+        _memoryPressureCoordinator = State(wrappedValue: memoryPressureCoordinator)
         _remoteCatalogService = State(wrappedValue: remoteCatalogService)
     }
 
@@ -119,12 +126,14 @@ struct LokalApp: App {
             .environment(modelStore)
             .environment(downloadManager)
             .environment(chatStore)
+            .environment(sessionStore)
             .environment(kbStore)
             .environment(embeddingStore)
             .environment(embeddingDownloader)
             .environment(indexingService)
             .environment(connectionStore)
             .environment(mcpStore)
+            .environment(memoryPressureCoordinator)
             .environment(remoteCatalogService)
             .preferredColorScheme(currentAppearanceMode.colorScheme)
             .tint(.accentColor)
@@ -139,6 +148,27 @@ struct LokalApp: App {
                 kbStore.bootstrap()
                 connectionStore.bootstrap()
                 mcpStore.bootstrap()
+                sessionStore.bootstrap()
+                // Wire memory-pressure response now that every store exists.
+                memoryPressureCoordinator.wire(
+                    chatStore: chatStore,
+                    embeddingStore: embeddingStore,
+                    indexingService: indexingService,
+                    sessionStore: sessionStore
+                )
+                // Seed a default session on first launch so the drawer is
+                // never empty — but only when we have a model to point it
+                // at. On a fresh install the user may still be on the
+                // "pick a model" screen, in which case we defer seeding
+                // until ensureEngineLoaded() succeeds later.
+                if sessionStore.sessions.isEmpty,
+                   let seedModelID = modelStore.activeID {
+                    sessionStore.seedDefaultSessionIfEmpty(
+                        modelID: seedModelID,
+                        knowledgeBaseID: kbStore.ragEnabled ? kbStore.activeBaseID : nil
+                    )
+                    FileLog.write("sessionStore seeded default session (model=\(seedModelID))")
+                }
                 await downloadManager.resumePending()
                 await mcpStore.connectAllEnabled()
                 // Refresh the model catalog from the remote in the
