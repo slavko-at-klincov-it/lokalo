@@ -430,6 +430,15 @@ final class ChatStore {
         if case .error = loadState { loadState = .idle }
     }
 
+    /// Tear down the engine when the app enters background with background
+    /// activity disabled. Reloads automatically via `ensureEngineLoaded()`
+    /// when the user returns.
+    func unloadForBackground() async {
+        streamTask?.cancel()
+        await tearDownEngine()
+        loadState = .idle
+    }
+
     /// Clear the current session's message history. Persisted.
     func clearConversation() {
         streamTask?.cancel()

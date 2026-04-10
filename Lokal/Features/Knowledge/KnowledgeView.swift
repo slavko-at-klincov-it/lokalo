@@ -12,24 +12,15 @@ import SwiftUI
 struct KnowledgeView: View {
     @Environment(KnowledgeBaseStore.self) private var kbStore
     @Environment(IndexingService.self) private var indexer
-    @Environment(EmbeddingModelStore.self) private var embedStore
-    @Environment(EmbeddingDownloader.self) private var embedDownloader
     @Environment(ConnectionStore.self) private var connections
     @Environment(\.dismiss) private var dismiss
 
     @State private var showAddSource = false
-    @State private var showEmbeddingSetup = false
 
     var body: some View {
         @Bindable var kb = kbStore
         NavigationStack {
             List {
-                if !embedStore.hasInstalled {
-                    Section {
-                        embeddingMissingBanner
-                    }
-                }
-
                 Section {
                     Toggle("RAG für Chat aktivieren", isOn: $kb.ragEnabled)
                         .onChange(of: kb.ragEnabled) { _, _ in
@@ -103,14 +94,6 @@ struct KnowledgeView: View {
                         Text(err).font(.callout).foregroundStyle(.red)
                     }
                 }
-
-                Section {
-                    NavigationLink {
-                        EmbeddingModelSetupView()
-                    } label: {
-                        Label("Embedding-Modell verwalten", systemImage: "cpu")
-                    }
-                }
             }
             .lokaloThemedBackground()
             .navigationTitle("Wissen")
@@ -121,12 +104,8 @@ struct KnowledgeView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        if !embedStore.hasInstalled {
-                            showEmbeddingSetup = true
-                        } else {
-                            ensureBaseExists()
-                            showAddSource = true
-                        }
+                        ensureBaseExists()
+                        showAddSource = true
                     } label: {
                         Image(systemName: "plus")
                     }
@@ -135,29 +114,7 @@ struct KnowledgeView: View {
             .sheet(isPresented: $showAddSource) {
                 AddSourceSheet()
             }
-            .sheet(isPresented: $showEmbeddingSetup) {
-                NavigationStack { EmbeddingModelSetupView() }
-            }
         }
-    }
-
-    private var embeddingMissingBanner: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Embedding-Modell fehlt", systemImage: "exclamationmark.triangle.fill")
-                .font(.headline)
-                .foregroundStyle(.orange)
-            Text("RAG braucht ein lokales Embedding-Modell. Lade es einmal herunter (~85 MB) — danach läuft alles offline.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-            Button {
-                showEmbeddingSetup = true
-            } label: {
-                Label("Modell laden", systemImage: "arrow.down.circle")
-                    .font(.callout.weight(.semibold))
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .padding(.vertical, 6)
     }
 
     private func sourceRow(source: KnowledgeSource) -> some View {
@@ -197,7 +154,7 @@ struct KnowledgeView: View {
     }
 
     private func ensureBaseExists() {
-        guard let entry = embedStore.activeEntry else { return }
+        let entry = EmbeddingModelCatalog.bundled
         _ = kbStore.createBaseIfNeeded(
             name: "Meine Wissensbasis",
             embeddingModelID: entry.id,

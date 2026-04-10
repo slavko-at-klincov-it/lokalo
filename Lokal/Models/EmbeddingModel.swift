@@ -2,10 +2,10 @@
 //  EmbeddingModel.swift
 //  Lokal
 //
-//  Catalog of GGUF embedding models that can be used for the RAG knowledge base.
-//  These are kept separate from `ModelCatalog` (which holds chat models) so that
-//  embedding-specific fields (dimensions, prefix conventions) live where they
-//  belong.
+//  The single bundled embedding model used for all RAG knowledge bases.
+//  EmbeddingGemma-300M is shipped inside the app bundle — no download
+//  required. The struct is kept Codable because KnowledgeBase persists
+//  the model ID to detect when re-indexing is needed after an upgrade.
 //
 
 import Foundation
@@ -20,9 +20,8 @@ struct EmbeddingModelEntry: Identifiable, Hashable, Codable, Sendable {
     let quantization: String
     let sizeBytes: Int64
     let estimatedRAMBytes: Int64
-    let downloadURL: URL
     let filename: String
-    /// Some models (nomic-embed) require a task prefix in front of every input.
+    /// Some models require a task prefix in front of every input.
     let documentPrefix: String?
     let queryPrefix: String?
     let recommendedContextTokens: Int
@@ -31,28 +30,35 @@ struct EmbeddingModelEntry: Identifiable, Hashable, Codable, Sendable {
 }
 
 enum EmbeddingModelCatalog {
-    static let all: [EmbeddingModelEntry] = [
-        EmbeddingModelEntry(
-            id: "nomic-embed-text-v1.5-q4km",
-            displayName: "Nomic Embed v1.5",
-            publisher: "Nomic AI",
-            summary: "Multilingual sentence-embedding model. 768-dim, optimized for retrieval.",
-            parametersBillion: 0.137,
-            dimensions: 768,
-            quantization: "Q4_K_M",
-            sizeBytes: 84_106_240,
-            estimatedRAMBytes: 250_000_000,
-            downloadURL: URL(string: "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q4_K_M.gguf")!,
-            filename: "nomic-embed-text-v1.5.Q4_K_M.gguf",
-            documentPrefix: "search_document: ",
-            queryPrefix: "search_query: ",
-            recommendedContextTokens: 2048
-        )
-    ]
+    static let bundled = EmbeddingModelEntry(
+        id: "embeddinggemma-300m-q4_0",
+        displayName: "EmbeddingGemma 300M",
+        publisher: "Google",
+        summary: "Multilingual sentence-embedding model. 768 dim, 100+ Sprachen, im App enthalten.",
+        parametersBillion: 0.3,
+        dimensions: 768,
+        quantization: "Q4_0",
+        sizeBytes: 277_852_192,
+        estimatedRAMBytes: 200_000_000,
+        filename: "embeddinggemma-300M-qat-Q4_0.gguf",
+        documentPrefix: nil,
+        queryPrefix: nil,
+        recommendedContextTokens: 2048
+    )
+
+    /// Path to the GGUF inside the app bundle. `nil` only if the
+    /// fetch script was not run before building.
+    static var bundledModelPath: String? {
+        Bundle.main.path(forResource: "embeddinggemma-300M-qat-Q4_0", ofType: "gguf")
+    }
+
+    // MARK: - Legacy compatibility shims
+
+    static let all: [EmbeddingModelEntry] = [bundled]
 
     static func entry(id: String) -> EmbeddingModelEntry? {
         all.first { $0.id == id }
     }
 
-    static var defaultEntry: EmbeddingModelEntry { all[0] }
+    static var defaultEntry: EmbeddingModelEntry { bundled }
 }

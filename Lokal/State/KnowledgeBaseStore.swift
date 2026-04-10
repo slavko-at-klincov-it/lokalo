@@ -52,6 +52,19 @@ final class KnowledgeBaseStore {
         return kb
     }
 
+    /// Migrate a knowledge base to a new embedding model. Resets all source
+    /// statuses to `.idle` so they get re-indexed with the new model.
+    func migrateEmbeddingModel(forBase baseID: UUID, modelID: String, dimensions: Int) {
+        guard let i = bases.firstIndex(where: { $0.id == baseID }) else { return }
+        bases[i].embeddingModelID = modelID
+        bases[i].dimensions = dimensions
+        for si in bases[i].sources.indices {
+            bases[i].sources[si].status = .idle
+            bases[i].sources[si].indexedChunks = 0
+        }
+        try? persist()
+    }
+
     func add(source: KnowledgeSource, toBase baseID: UUID) {
         guard let i = bases.firstIndex(where: { $0.id == baseID }) else { return }
         bases[i].sources.append(source)

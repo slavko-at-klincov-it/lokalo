@@ -31,6 +31,8 @@ struct SettingsSheet: View {
     private var hasCompletedOnboarding: Bool = false
     @AppStorage(OnboardingPreferences.appearanceModeKey)
     private var appearanceModeRaw: String = OnboardingPreferences.defaultAppearanceMode.rawValue
+    @AppStorage(OnboardingPreferences.allowBackgroundActivityKey)
+    private var allowBackgroundActivity: Bool = true
 
     @State private var showOnboardingResetConfirm = false
 
@@ -135,6 +137,21 @@ struct SettingsSheet: View {
                             }
                         } icon: {
                             Image(systemName: "circle.lefthalf.filled")
+                        }
+                    }
+                }
+
+                Section("Leistung") {
+                    Toggle(isOn: $allowBackgroundActivity) {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Hintergrundaktivität erlauben")
+                                Text("Wenn deaktiviert, werden Modelle beim Wechsel in den Hintergrund entladen, um Speicher freizugeben.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } icon: {
+                            Image(systemName: "moon.zzz")
                         }
                     }
                 }

@@ -17,7 +17,6 @@ struct LokalApp: App {
     @State private var connectionStore: ConnectionStore
     @State private var mcpStore: MCPStore
     @State private var downloadManager: DownloadManager
-    @State private var embeddingDownloader: EmbeddingDownloader
     @State private var indexingService: IndexingService
     @State private var sessionStore: ChatSessionStore
     @State private var chatStore: ChatStore
@@ -35,7 +34,6 @@ struct LokalApp: App {
         let sessionStore = ChatSessionStore()
 
         let downloadManager = DownloadManager(modelStore: modelStore)
-        let embeddingDownloader = EmbeddingDownloader(store: embeddingStore)
         let indexingService = IndexingService(
             kbStore: kbStore,
             embeddingStore: embeddingStore,
@@ -57,7 +55,6 @@ struct LokalApp: App {
         _connectionStore    = State(wrappedValue: connectionStore)
         _mcpStore           = State(wrappedValue: mcpStore)
         _downloadManager    = State(wrappedValue: downloadManager)
-        _embeddingDownloader = State(wrappedValue: embeddingDownloader)
         _indexingService    = State(wrappedValue: indexingService)
         _sessionStore       = State(wrappedValue: sessionStore)
         _chatStore          = State(wrappedValue: chatStore)
@@ -77,6 +74,9 @@ struct LokalApp: App {
     /// scheme via the `.preferredColorScheme(...)` modifier below.
     @AppStorage(OnboardingPreferences.appearanceModeKey)
     private var appearanceModeRaw: String = OnboardingPreferences.defaultAppearanceMode.rawValue
+
+    @AppStorage(OnboardingPreferences.allowBackgroundActivityKey)
+    private var allowBackgroundActivity: Bool = true
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -134,7 +134,6 @@ struct LokalApp: App {
             .environment(sessionStore)
             .environment(kbStore)
             .environment(embeddingStore)
-            .environment(embeddingDownloader)
             .environment(indexingService)
             .environment(connectionStore)
             .environment(mcpStore)
@@ -151,6 +150,17 @@ struct LokalApp: App {
                 FileLog.write("modelStore bootstrap done, installed=\(modelStore.installedModels.count)")
                 embeddingStore.bootstrap()
                 kbStore.bootstrap()
+                // Migrate knowledge bases from old Nomic model to bundled EmbeddingGemma.
+                let oldEmbeddingID = "nomic-embed-text-v1.5-q4km"
+                let newEntry = EmbeddingModelCatalog.bundled
+                for kb in kbStore.bases where kb.embeddingModelID == oldEmbeddingID {
+                    kbStore.migrateEmbeddingModel(
+                        forBase: kb.id,
+                        modelID: newEntry.id,
+                        dimensions: newEntry.dimensions
+                    )
+                }
+                embeddingStore.cleanupLegacyDownloads()
                 connectionStore.bootstrap()
                 mcpStore.bootstrap()
                 sessionStore.bootstrap()
@@ -210,9 +220,16 @@ struct LokalApp: App {
                 if newPhase == .active && oldPhase != .active {
                     indexingService.checkStaleSources()
                     indexingService.startPeriodicCloudSync()
+                    if !allowBackgroundActivity {
+                        Task { await chatStore.ensureEngineLoaded() }
+                    }
                 } else if newPhase == .background {
                     indexingService.stopPeriodicCloudSync()
                     BackgroundIndexScheduler.scheduleNext()
+                    if !allowBackgroundActivity {
+                        embeddingStore.unloadEngine()
+                        Task { await chatStore.unloadForBackground() }
+                    }
                 }
             }
         }

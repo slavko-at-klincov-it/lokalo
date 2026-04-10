@@ -29,6 +29,11 @@ enum OnboardingPreferences {
     /// explicit choice (either "Später wählen" or the featured entry).
     static let defaultFirstModelID = ""
 
+    /// Whether models stay loaded when the app goes to the background.
+    /// Default `true`. When `false`, both chat and embedding engines are
+    /// unloaded on `scenePhase == .background` to free RAM.
+    static let allowBackgroundActivityKey = "Lokal.settings.allowBackgroundActivity"
+
     /// Dark / Light appearance preference. Stored as the raw string of
     /// `AppearanceMode`. `LokalApp` reads this key via `@AppStorage`
     /// and maps it to `.preferredColorScheme(...)` so every screen

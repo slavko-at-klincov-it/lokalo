@@ -14,8 +14,6 @@ struct AddSourceSheet: View {
     @Environment(KnowledgeBaseStore.self) private var kbStore
     @Environment(IndexingService.self) private var indexer
     @Environment(ConnectionStore.self) private var connections
-    @Environment(EmbeddingModelStore.self) private var embedStore
-
     @State private var showFolderImporter = false
     @State private var showRepoBrowser = false
     @State private var showDriveBrowser = false
@@ -152,7 +150,7 @@ struct AddSourceSheet: View {
     }
 
     private func addToActiveBase(_ source: KnowledgeSource) {
-        guard let entry = embedStore.activeEntry else { return }
+        let entry = EmbeddingModelCatalog.bundled
         let kb = kbStore.createBaseIfNeeded(
             name: "Meine Wissensbasis",
             embeddingModelID: entry.id,

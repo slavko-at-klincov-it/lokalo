@@ -40,6 +40,9 @@ Frameworks/build-apple/
 .vscode/
 *.swp
 
+# Bundled embedding model — too large for git, fetched on demand
+Lokal/Resources/embeddinggemma-300M-qat-Q4_0.gguf
+
 # App Store Connect API credentials — never commit
 scripts/testflight-config.sh
 scripts/AuthKey_*.p8

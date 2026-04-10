@@ -88,9 +88,8 @@ final class IndexingService {
     /// manifest exists and the embedding model hasn't changed; otherwise
     /// falls back to a full re-index.
     func indexSource(_ source: KnowledgeSource, in baseID: UUID, forceFullReindex: Bool = false) {
-        guard let entry = embeddingStore.activeEntry,
-              embeddingStore.isInstalled(entry.id) else {
-            lastError = "Bitte zuerst ein Embedding-Modell laden."
+        guard let entry = embeddingStore.activeEntry else {
+            lastError = "Kein Embedding-Modell verfügbar."
             return
         }
         cancel()
@@ -595,8 +594,7 @@ final class IndexingService {
         guard let kb = kbStore.bases.first(where: { $0.id == baseID }) else {
             return []
         }
-        guard let entry = embeddingStore.activeEntry,
-              embeddingStore.isInstalled(entry.id) else { return [] }
+        guard let entry = embeddingStore.activeEntry else { return [] }
 
         let embedder = try await embeddingStore.ensureEngine()
         let queryText = (entry.queryPrefix ?? "") + text
