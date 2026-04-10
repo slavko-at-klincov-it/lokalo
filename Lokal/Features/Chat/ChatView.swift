@@ -49,7 +49,7 @@ struct ChatView: View {
                         if inputFocused { inputFocused = false }
                     }
                 )
-            // contextGauge — temporarily disabled to isolate flicker bug
+            contextGauge
             composer
         }
         .overlay(alignment: .top) {
@@ -465,7 +465,7 @@ struct ChatView: View {
         .frame(height: 3)
         .padding(.horizontal, 12)
         .padding(.vertical, 2)
-        .opacity(contextUsage > 0.05 ? 1 : 0)
+        .opacity(chatStore.messages.isEmpty ? 0 : 1)
         // Animate only on message count changes — NOT on every
         // streaming token. This keeps the gauge perfectly still
         // during generation and only moves when a turn completes.
