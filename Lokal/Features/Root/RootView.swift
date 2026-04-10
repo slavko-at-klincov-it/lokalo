@@ -41,6 +41,7 @@ struct RootView: View {
     @AppStorage(OnboardingPreferences.hasCompletedKey)
     private var hasCompletedOnboarding: Bool = false
     @State private var didShowPreferredFirstModel = false
+    @State private var showLowRAMWarning = false
 
     /// Soft taptic for tab changes — same style as the paging
     /// commit and Loslegen impact. `prepare()` in `.task` avoids
@@ -132,6 +133,17 @@ struct RootView: View {
         }
         .task {
             tabHaptic.prepare()
+
+            // RAM check: warn once if the device has less than 8 GB.
+            // 3B+ models need ~2.5–3 GB of inference RAM; on 6 GB
+            // devices the iOS Jetsam limit (~3 GB) is too tight for
+            // a stable experience. Apple Intelligence draws the same
+            // line — 8 GB minimum.
+            let physicalRAM = ProcessInfo.processInfo.physicalMemory
+            if physicalRAM < 7_500_000_000 { // < ~7.5 GB (8 GB devices report ~7.9 GB)
+                showLowRAMWarning = true
+            }
+
             // Wait long enough for (a) `modelStore.bootstrap()` to
             // finish and (b) the onboarding → RootView scale+fade
             // spring to settle, before pushing into the preferred
@@ -140,6 +152,11 @@ struct RootView: View {
             // NavigationStack push.
             try? await Task.sleep(nanoseconds: 950_000_000)
             presentPreferredFirstModelIfNeeded()
+        }
+        .alert("Nicht genügend Arbeitsspeicher", isPresented: $showLowRAMWarning) {
+            Button("Trotzdem verwenden") { }
+        } message: {
+            Text("Lokalo benötigt mindestens 8 GB RAM für eine stabile Erfahrung. Auf diesem Gerät können größere Modelle zu Abstürzen führen. Kleine Modelle (0,5–1,5 B) funktionieren möglicherweise trotzdem.")
         }
         .onChange(of: hasCompletedOnboarding) { _, _ in
             presentPreferredFirstModelIfNeeded()
