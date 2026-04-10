@@ -62,6 +62,7 @@ struct KnowledgeView: View {
                     Section("Indizierung läuft") {
                         VStack(alignment: .leading, spacing: 8) {
                             Text(progress.sourceName).font(.subheadline.weight(.medium))
+                            Text(progress.status).font(.caption).foregroundStyle(.secondary)
                             ProgressView(value: Double(progress.processedFiles),
                                          total: Double(max(progress.totalFiles, 1)))
                             HStack {
@@ -77,6 +78,23 @@ struct KnowledgeView: View {
                             .font(.caption)
                         }
                         .padding(.vertical, 4)
+
+                        if !progress.skippedFiles.isEmpty {
+                            DisclosureGroup("Übersprungen (\(progress.skippedFiles.count))") {
+                                ForEach(progress.skippedFiles, id: \.self) { name in
+                                    Text(name).font(.caption2).foregroundStyle(.secondary)
+                                }
+                            }
+                            .font(.caption)
+                        }
+                        if !progress.failedFiles.isEmpty {
+                            DisclosureGroup("Fehlgeschlagen (\(progress.failedFiles.count))") {
+                                ForEach(progress.failedFiles, id: \.self) { name in
+                                    Text(name).font(.caption2).foregroundStyle(.red)
+                                }
+                            }
+                            .font(.caption)
+                        }
                     }
                 }
 

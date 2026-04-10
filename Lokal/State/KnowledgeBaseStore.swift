@@ -72,15 +72,23 @@ final class KnowledgeBaseStore {
     /// IndexingService directly.
     var onSourceRemoved: ((UUID) -> Void)?
 
+    /// Fires BEFORE the on-disk files are deleted, so a running indexing
+    /// task can be cancelled before its target files disappear.
+    var onSourceWillBeRemoved: ((UUID) -> Void)?
+
     func remove(source: KnowledgeSource) {
+        // Cancel any active indexing for this source before touching files.
+        onSourceWillBeRemoved?(source.id)
         for bi in bases.indices {
             bases[bi].sources.removeAll { $0.id == source.id }
         }
         // Best-effort cleanup of any on-disk artefacts.
         let idxURL = Self.indexFileURL(for: source.id)
         let dbURL  = Self.chunkDBFileURL(for: source.id)
+        let mfURL  = Self.documentManifestURL(for: source.id)
         try? FileManager.default.removeItem(at: idxURL)
         try? FileManager.default.removeItem(at: dbURL)
+        try? FileManager.default.removeItem(at: mfURL)
         try? persist()
         onSourceRemoved?(source.id)
     }
@@ -88,8 +96,10 @@ final class KnowledgeBaseStore {
     func removeBase(_ id: UUID) {
         guard let kb = bases.first(where: { $0.id == id }) else { return }
         for src in kb.sources {
+            onSourceWillBeRemoved?(src.id)
             try? FileManager.default.removeItem(at: Self.indexFileURL(for: src.id))
             try? FileManager.default.removeItem(at: Self.chunkDBFileURL(for: src.id))
+            try? FileManager.default.removeItem(at: Self.documentManifestURL(for: src.id))
             onSourceRemoved?(src.id)
         }
         bases.removeAll { $0.id == id }
@@ -118,6 +128,12 @@ final class KnowledgeBaseStore {
         rootDirectory()
             .appendingPathComponent("databases", isDirectory: true)
             .appendingPathComponent("\(sourceID.uuidString).sqlite")
+    }
+
+    static func documentManifestURL(for sourceID: UUID) -> URL {
+        rootDirectory()
+            .appendingPathComponent("manifests", isDirectory: true)
+            .appendingPathComponent("\(sourceID.uuidString).json")
     }
 
     private struct Manifest: Codable {

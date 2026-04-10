@@ -23,6 +23,7 @@ struct LokalApp: App {
     @State private var chatStore: ChatStore
     @State private var memoryPressureCoordinator: MemoryPressureCoordinator
     @State private var remoteCatalogService: RemoteCatalogService
+    @State private var sourceWatcher: SourceWatcher
 
     init() {
         let modelStore = ModelStore()
@@ -48,6 +49,7 @@ struct LokalApp: App {
             mcpStore: mcpStore
         )
         let memoryPressureCoordinator = MemoryPressureCoordinator()
+        let sourceWatcher = SourceWatcher()
 
         _modelStore         = State(wrappedValue: modelStore)
         _kbStore            = State(wrappedValue: kbStore)
@@ -61,6 +63,7 @@ struct LokalApp: App {
         _chatStore          = State(wrappedValue: chatStore)
         _memoryPressureCoordinator = State(wrappedValue: memoryPressureCoordinator)
         _remoteCatalogService = State(wrappedValue: remoteCatalogService)
+        _sourceWatcher    = State(wrappedValue: sourceWatcher)
     }
 
     /// First-launch flag — when false, the OnboardingFlow runs before the
@@ -74,6 +77,8 @@ struct LokalApp: App {
     /// scheme via the `.preferredColorScheme(...)` modifier below.
     @AppStorage(OnboardingPreferences.appearanceModeKey)
     private var appearanceModeRaw: String = OnboardingPreferences.defaultAppearanceMode.rawValue
+
+    @Environment(\.scenePhase) private var scenePhase
 
     private var currentAppearanceMode: AppearanceMode {
         AppearanceMode(rawValue: appearanceModeRaw) ?? .dark
@@ -149,6 +154,27 @@ struct LokalApp: App {
                 connectionStore.bootstrap()
                 mcpStore.bootstrap()
                 sessionStore.bootstrap()
+                // Invalidate all cached RAG stores when the embedding model changes.
+                embeddingStore.onActiveModelChanged = { [indexingService] in
+                    indexingService.invalidateAllCaches()
+                }
+                // Cancel active indexing before a source's files are deleted.
+                kbStore.onSourceWillBeRemoved = { [indexingService, sourceWatcher] sourceID in
+                    indexingService.cancelIfIndexing(sourceID: sourceID)
+                    sourceWatcher.unwatch(sourceID: sourceID)
+                }
+                // Watch local-folder sources for filesystem changes.
+                sourceWatcher.onSourceChanged = { [indexingService, kbStore] sourceID in
+                    guard let kb = kbStore.activeBase,
+                          let source = kb.sources.first(where: { $0.id == sourceID })
+                    else { return }
+                    indexingService.indexSource(source, in: kb.id)
+                }
+                sourceWatcher.watchAll(in: kbStore.bases)
+                // Start periodic cloud-source sync (15-minute interval).
+                indexingService.startPeriodicCloudSync()
+                // Register the background processing task for RAG indexing.
+                BackgroundIndexScheduler.register(indexingService: indexingService)
                 // Wire memory-pressure response now that every store exists.
                 memoryPressureCoordinator.wire(
                     chatStore: chatStore,
@@ -179,6 +205,15 @@ struct LokalApp: App {
                 // close to head-of-main.
                 await remoteCatalogService.refresh()
                 await chatStore.runAutoTestPromptIfPresent()
+            }
+            .onChange(of: scenePhase) { oldPhase, newPhase in
+                if newPhase == .active && oldPhase != .active {
+                    indexingService.checkStaleSources()
+                    indexingService.startPeriodicCloudSync()
+                } else if newPhase == .background {
+                    indexingService.stopPeriodicCloudSync()
+                    BackgroundIndexScheduler.scheduleNext()
+                }
             }
         }
     }

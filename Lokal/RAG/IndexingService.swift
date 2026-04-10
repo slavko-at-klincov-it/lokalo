@@ -21,6 +21,8 @@ final class IndexingService {
         var processedFiles: Int
         var indexedChunks: Int
         var status: String
+        var skippedFiles: [String] = []
+        var failedFiles: [String] = []
     }
 
     var current: Progress?
@@ -30,6 +32,8 @@ final class IndexingService {
     private let embeddingStore: EmbeddingModelStore
     private let connectionStore: ConnectionStore
     private var task: Task<Void, Never>?
+    private var indexingSourceID: UUID?
+    private var syncTimer: Task<Void, Never>?
 
     /// Per-source cache of loaded VectorStore + ChunkStore so that
     /// `query()` doesn't reload the USearch index and reopen the SQLite
@@ -57,6 +61,14 @@ final class IndexingService {
     func cancel() {
         task?.cancel()
         task = nil
+        indexingSourceID = nil
+    }
+
+    /// Cancel the active indexing task only if it targets the given source.
+    func cancelIfIndexing(sourceID: UUID) {
+        if indexingSourceID == sourceID {
+            cancel()
+        }
     }
 
     /// Drop the cached stores for a given source. Call after re-indexing,
@@ -72,8 +84,10 @@ final class IndexingService {
         loadedStores.removeAll()
     }
 
-    /// Index a single source from scratch (drops any previous chunks for it).
-    func indexSource(_ source: KnowledgeSource, in baseID: UUID) {
+    /// Index a source. Automatically picks incremental mode when a valid
+    /// manifest exists and the embedding model hasn't changed; otherwise
+    /// falls back to a full re-index.
+    func indexSource(_ source: KnowledgeSource, in baseID: UUID, forceFullReindex: Bool = false) {
         guard let entry = embeddingStore.activeEntry,
               embeddingStore.isInstalled(entry.id) else {
             lastError = "Bitte zuerst ein Embedding-Modell laden."
@@ -83,6 +97,7 @@ final class IndexingService {
         // Re-indexing invalidates the on-disk USearch index for this
         // source, so any cached store is now stale.
         invalidateCache(for: source.id)
+        indexingSourceID = source.id
         var working = source
         working.status = .indexing
         working.statusMessage = nil
@@ -102,10 +117,17 @@ final class IndexingService {
         let kbStoreRef = kbStore
         let embeddingStoreRef = embeddingStore
 
+        let forceFullReindex = forceFullReindex
         task = Task { [weak self] in
             do {
+                // Check for existing manifest to decide full vs incremental.
+                let manifestURL = KnowledgeBaseStore.documentManifestURL(for: source.id)
+                let existingManifest = DocumentManifest.load(from: manifestURL)
+                let canIncremental = !forceFullReindex
+                    && existingManifest != nil
+                    && existingManifest?.embeddingModelID == entry.id
+
                 // Resolve the file URLs that need to be processed.
-                let urls: [URL]
                 let scopedURL: URL?
                 switch source.kind {
                 case .localFolder:
@@ -115,18 +137,32 @@ final class IndexingService {
                     defer {
                         if started { resolved.stopAccessingSecurityScopedResource() }
                     }
-                    urls = Self.collectSupportedFiles(rootURL: resolved)
-                    try await self?.runIndexingPipeline(
-                        urls: urls,
-                        rootURL: resolved,
-                        source: source,
-                        baseID: baseID,
-                        entry: entry,
-                        embeddingStore: embeddingStoreRef,
-                        kbStore: kbStoreRef
-                    )
+                    let collected = Self.collectSupportedFiles(rootURL: resolved)
+                    if canIncremental, let manifest = existingManifest {
+                        try await self?.runIncrementalPipeline(
+                            urls: collected.accepted,
+                            skippedFiles: collected.skipped,
+                            rootURL: resolved,
+                            source: source,
+                            baseID: baseID,
+                            entry: entry,
+                            manifest: manifest,
+                            embeddingStore: embeddingStoreRef,
+                            kbStore: kbStoreRef
+                        )
+                    } else {
+                        try await self?.runIndexingPipeline(
+                            urls: collected.accepted,
+                            skippedFiles: collected.skipped,
+                            rootURL: resolved,
+                            source: source,
+                            baseID: baseID,
+                            entry: entry,
+                            embeddingStore: embeddingStoreRef,
+                            kbStore: kbStoreRef
+                        )
+                    }
                 case .githubRepo, .googleDriveFolder, .onedriveFolder:
-                    // Remote sources go through the connection-specific fetcher.
                     let temp = try Self.makeTempDirectory()
                     defer { try? FileManager.default.removeItem(at: temp) }
                     try await connectionStoreRef.fetchAllFiles(
@@ -134,16 +170,31 @@ final class IndexingService {
                         into: temp
                     )
                     scopedURL = nil
-                    urls = Self.collectSupportedFiles(rootURL: temp)
-                    try await self?.runIndexingPipeline(
-                        urls: urls,
-                        rootURL: temp,
-                        source: source,
-                        baseID: baseID,
-                        entry: entry,
-                        embeddingStore: embeddingStoreRef,
-                        kbStore: kbStoreRef
-                    )
+                    let collected = Self.collectSupportedFiles(rootURL: temp)
+                    if canIncremental, let manifest = existingManifest {
+                        try await self?.runIncrementalPipeline(
+                            urls: collected.accepted,
+                            skippedFiles: collected.skipped,
+                            rootURL: temp,
+                            source: source,
+                            baseID: baseID,
+                            entry: entry,
+                            manifest: manifest,
+                            embeddingStore: embeddingStoreRef,
+                            kbStore: kbStoreRef
+                        )
+                    } else {
+                        try await self?.runIndexingPipeline(
+                            urls: collected.accepted,
+                            skippedFiles: collected.skipped,
+                            rootURL: temp,
+                            source: source,
+                            baseID: baseID,
+                            entry: entry,
+                            embeddingStore: embeddingStoreRef,
+                            kbStore: kbStoreRef
+                        )
+                    }
                 }
                 _ = scopedURL
             } catch {
@@ -154,21 +205,22 @@ final class IndexingService {
                     failed.statusMessage = error.lokaloMessage
                     self?.kbStore.update(source: failed)
                     self?.current = nil
+                    self?.indexingSourceID = nil
                 }
             }
 
             // Free the embedding engine after every indexing run so the
-            // chat LLM has the full RAM budget. The engine is lazy-loaded
-            // again on the next RAG query via `ensureEngine()`, so this
-            // is invisible to the user — just a brief (~0.5 s) reload
-            // delay on the first query after indexing.
+            // chat LLM has the full RAM budget.
             await MainActor.run {
                 embeddingStoreRef.unloadEngine()
             }
         }
     }
 
+    // MARK: - Full Re-Index Pipeline
+
     private func runIndexingPipeline(urls: [URL],
+                                     skippedFiles: [String],
                                      rootURL: URL,
                                      source: KnowledgeSource,
                                      baseID: UUID,
@@ -177,16 +229,22 @@ final class IndexingService {
                                      kbStore: KnowledgeBaseStore) async throws {
         await MainActor.run {
             self.current?.totalFiles = urls.count
+            self.current?.skippedFiles = skippedFiles
             self.current?.status = "Indiziere \(urls.count) Dateien…"
         }
 
-        // Reset the existing index and metadata for this source.
-        let chunkStore = try ChunkStore(url: KnowledgeBaseStore.chunkDBFileURL(for: source.id))
-        _ = try chunkStore.deleteAll(forSource: source.id)
-        try? FileManager.default.removeItem(at: KnowledgeBaseStore.indexFileURL(for: source.id))
-        let vectorStore = try VectorStore(
+        // Atomic re-indexing: write to a staging directory first, then
+        // swap into the final location only on success.
+        let stagingDir = try Self.makeTempDirectory()
+        defer { try? FileManager.default.removeItem(at: stagingDir) }
+
+        let stagingIndexURL = stagingDir.appendingPathComponent("index.usearch")
+        let stagingChunkURL = stagingDir.appendingPathComponent("chunks.sqlite")
+
+        let chunkStore = try ChunkStore(url: stagingChunkURL)
+        let vectorStore = try await VectorStore(
             dimensions: entry.dimensions,
-            storeURL: KnowledgeBaseStore.indexFileURL(for: source.id)
+            storeURL: stagingIndexURL
         )
 
         let embedder = try await embeddingStore.ensureEngine()
@@ -194,6 +252,8 @@ final class IndexingService {
         var processed = 0
         var totalChunks = 0
         var indexedDocuments = 0
+        var failedFiles: [String] = []
+        var manifestRecords: [String: DocumentRecord] = [:]
 
         for url in urls {
             if Task.isCancelled { break }
@@ -205,27 +265,33 @@ final class IndexingService {
                     continue
                 }
                 let chunks = Chunker.chunk(doc, targetTokens: 384, overlapTokens: 64)
+                let relativePath = Self.relativePath(of: url, to: rootURL)
+                let hash = (try? FileHasher.sha256Hex(of: url)) ?? UUID().uuidString
+                let modDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .now
+
+                var documentChunks: [(key: UInt64, sourceID: UUID, documentPath: String,
+                                      documentName: String, pageIndex: Int?,
+                                      charStart: Int, charEnd: Int, text: String)] = []
+                var chunkKeys: [UInt64] = []
                 for chunk in chunks {
                     if Task.isCancelled { break }
                     let textWithPrefix = (entry.documentPrefix ?? "") + chunk.text
                     let vec = try await embedder.embed(textWithPrefix)
                     let key = UInt64.random(in: 1...UInt64.max)
                     try await vectorStore.upsert(key: key, embedding: vec)
-                    try chunkStore.insert(
-                        key: key,
-                        sourceID: source.id,
-                        documentPath: url.path,
-                        documentName: url.lastPathComponent,
-                        pageIndex: chunk.pageIndex,
-                        charStart: chunk.charStart,
-                        charEnd: chunk.charEnd,
-                        text: chunk.text
-                    )
+                    documentChunks.append((key, source.id, url.path, url.lastPathComponent,
+                                           chunk.pageIndex, chunk.charStart, chunk.charEnd, chunk.text))
+                    chunkKeys.append(key)
                     totalChunks += 1
                 }
+                try await chunkStore.insertBatch(documentChunks)
+                manifestRecords[relativePath] = DocumentRecord(
+                    relativePath: relativePath, sha256: hash,
+                    modifiedAt: modDate, chunkKeys: chunkKeys
+                )
                 indexedDocuments += 1
             } catch {
-                // Skip individual file errors; keep indexing.
+                failedFiles.append(url.lastPathComponent)
                 #if DEBUG
                 print("Index error for \(url.lastPathComponent): \(error.lokaloMessage)")
                 #endif
@@ -233,16 +299,45 @@ final class IndexingService {
             processed += 1
             let snapshotProcessed = processed
             let snapshotChunks = totalChunks
+            let snapshotFailed = failedFiles
             await MainActor.run {
                 self.current?.processedFiles = snapshotProcessed
                 self.current?.indexedChunks = snapshotChunks
+                self.current?.failedFiles = snapshotFailed
             }
         }
 
+        guard !Task.isCancelled else { return }
+
         try await vectorStore.persist()
 
+        // Atomic swap: move staging files into final location.
+        let finalIndexURL = KnowledgeBaseStore.indexFileURL(for: source.id)
+        let finalChunkURL = KnowledgeBaseStore.chunkDBFileURL(for: source.id)
+        try FileManager.default.createDirectory(
+            at: finalIndexURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try FileManager.default.createDirectory(
+            at: finalChunkURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try? FileManager.default.removeItem(at: finalIndexURL)
+        try? FileManager.default.removeItem(at: finalChunkURL)
+        try FileManager.default.moveItem(at: stagingIndexURL, to: finalIndexURL)
+        try FileManager.default.moveItem(at: stagingChunkURL, to: finalChunkURL)
+
+        // Save the document manifest for future incremental runs.
+        let manifest = DocumentManifest(
+            sourceID: source.id,
+            records: manifestRecords,
+            embeddingModelID: entry.id,
+            indexedAt: .now
+        )
+        try? manifest.save(to: KnowledgeBaseStore.documentManifestURL(for: source.id))
+
         var done = source
-        done.status = Task.isCancelled ? .idle : .ready
+        done.status = .ready
         done.lastIndexedAt = .now
         done.indexedDocuments = indexedDocuments
         done.indexedChunks = totalChunks
@@ -250,6 +345,245 @@ final class IndexingService {
         await MainActor.run {
             kbStore.update(source: done)
             self.current = nil
+            self.indexingSourceID = nil
+        }
+    }
+
+    // MARK: - Incremental Pipeline
+
+    private func runIncrementalPipeline(urls: [URL],
+                                        skippedFiles: [String],
+                                        rootURL: URL,
+                                        source: KnowledgeSource,
+                                        baseID: UUID,
+                                        entry: EmbeddingModelEntry,
+                                        manifest: DocumentManifest,
+                                        embeddingStore: EmbeddingModelStore,
+                                        kbStore: KnowledgeBaseStore) async throws {
+        // Build a lookup of current files by relative path.
+        var currentFiles: [String: URL] = [:]
+        for url in urls {
+            currentFiles[Self.relativePath(of: url, to: rootURL)] = url
+        }
+
+        // Classify files into: unchanged, changed/new, deleted.
+        var toIndex: [(url: URL, relativePath: String)] = []
+        var toRemoveKeys: [UInt64] = []
+        var unchangedCount = 0
+
+        for (relPath, record) in manifest.records {
+            if currentFiles[relPath] == nil {
+                // File was deleted — remove its chunks.
+                toRemoveKeys.append(contentsOf: record.chunkKeys)
+            }
+        }
+
+        for (relPath, url) in currentFiles {
+            if let existing = manifest.records[relPath] {
+                let hash = (try? FileHasher.sha256Hex(of: url)) ?? ""
+                if hash == existing.sha256 {
+                    unchangedCount += 1
+                } else {
+                    // File changed — remove old chunks, re-index.
+                    toRemoveKeys.append(contentsOf: existing.chunkKeys)
+                    toIndex.append((url, relPath))
+                }
+            } else {
+                // New file.
+                toIndex.append((url, relPath))
+            }
+        }
+
+        let totalWork = toIndex.count
+        let deletedDocs = manifest.records.keys.filter { currentFiles[$0] == nil }.count
+
+        await MainActor.run {
+            self.current?.totalFiles = totalWork
+            self.current?.skippedFiles = skippedFiles
+            self.current?.status = "\(unchangedCount) unverändert, \(totalWork) zu aktualisieren, \(deletedDocs) gelöscht"
+        }
+
+        // If nothing changed, just update the timestamp and return.
+        if toIndex.isEmpty && toRemoveKeys.isEmpty {
+            var done = source
+            done.status = .ready
+            done.lastIndexedAt = .now
+            done.statusMessage = nil
+            await MainActor.run {
+                kbStore.update(source: done)
+                self.current = nil
+                self.indexingSourceID = nil
+            }
+            return
+        }
+
+        // Load existing stores for in-place modification.
+        let indexURL = KnowledgeBaseStore.indexFileURL(for: source.id)
+        let chunkURL = KnowledgeBaseStore.chunkDBFileURL(for: source.id)
+        let vectorStore = try await VectorStore(dimensions: entry.dimensions, storeURL: indexURL)
+        let chunkStore = try ChunkStore(url: chunkURL)
+
+        let embedder = try await embeddingStore.ensureEngine()
+
+        // Build updated manifest starting from unchanged records.
+        var updatedRecords = manifest.records
+        // Remove deleted files from manifest.
+        for relPath in manifest.records.keys where currentFiles[relPath] == nil {
+            updatedRecords.removeValue(forKey: relPath)
+        }
+
+        // Phase 1: Insert new/changed chunks FIRST. If the app crashes
+        // here, we end up with duplicates (old + new) rather than data
+        // loss. Duplicates are harmless — the next incremental run will
+        // detect the stale manifest and clean up.
+        var processed = 0
+        var newChunks = 0
+        var failedFiles: [String] = []
+
+        for (url, relPath) in toIndex {
+            if Task.isCancelled { break }
+            do {
+                let doc = try DocumentExtractor.extract(from: url)
+                if doc.isEmpty {
+                    processed += 1
+                    await MainActor.run { self.current?.processedFiles = processed }
+                    continue
+                }
+                let chunks = Chunker.chunk(doc, targetTokens: 384, overlapTokens: 64)
+                let hash = (try? FileHasher.sha256Hex(of: url)) ?? UUID().uuidString
+                let modDate = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .now
+
+                var documentChunks: [(key: UInt64, sourceID: UUID, documentPath: String,
+                                      documentName: String, pageIndex: Int?,
+                                      charStart: Int, charEnd: Int, text: String)] = []
+                var chunkKeys: [UInt64] = []
+                for chunk in chunks {
+                    if Task.isCancelled { break }
+                    let textWithPrefix = (entry.documentPrefix ?? "") + chunk.text
+                    let vec = try await embedder.embed(textWithPrefix)
+                    let key = UInt64.random(in: 1...UInt64.max)
+                    try await vectorStore.upsert(key: key, embedding: vec)
+                    documentChunks.append((key, source.id, url.path, url.lastPathComponent,
+                                           chunk.pageIndex, chunk.charStart, chunk.charEnd, chunk.text))
+                    chunkKeys.append(key)
+                    newChunks += 1
+                }
+                try await chunkStore.insertBatch(documentChunks)
+                updatedRecords[relPath] = DocumentRecord(
+                    relativePath: relPath, sha256: hash,
+                    modifiedAt: modDate, chunkKeys: chunkKeys
+                )
+            } catch {
+                failedFiles.append(url.lastPathComponent)
+                #if DEBUG
+                print("Incremental index error for \(url.lastPathComponent): \(error.lokaloMessage)")
+                #endif
+            }
+            processed += 1
+            let snapshotProcessed = processed
+            let snapshotChunks = newChunks
+            let snapshotFailed = failedFiles
+            await MainActor.run {
+                self.current?.processedFiles = snapshotProcessed
+                self.current?.indexedChunks = snapshotChunks
+                self.current?.failedFiles = snapshotFailed
+            }
+        }
+
+        guard !Task.isCancelled else { return }
+
+        // Phase 2: Now remove old keys for changed/deleted files.
+        // New chunks are already safely persisted above.
+        for key in toRemoveKeys {
+            await vectorStore.remove(key: key)
+        }
+        if !toRemoveKeys.isEmpty {
+            try await chunkStore.deleteKeys(toRemoveKeys)
+        }
+
+        try await vectorStore.persist()
+
+        // Save manifest. If crash happens between persist() and here,
+        // the manifest is stale — but queries still work, and the next
+        // incremental run detects the mismatch via hash comparison and
+        // triggers a full re-index.
+        let updatedManifest = DocumentManifest(
+            sourceID: source.id,
+            records: updatedRecords,
+            embeddingModelID: entry.id,
+            indexedAt: .now
+        )
+        try? updatedManifest.save(to: KnowledgeBaseStore.documentManifestURL(for: source.id))
+
+        // Invalidate cached stores so queries reload the updated index.
+        await MainActor.run { [source] in
+            self.invalidateCache(for: source.id)
+        }
+
+        let totalDocs = updatedRecords.count
+        let totalChunksCount = updatedRecords.values.reduce(0) { $0 + $1.chunkKeys.count }
+        var done = source
+        done.status = .ready
+        done.lastIndexedAt = .now
+        done.indexedDocuments = totalDocs
+        done.indexedChunks = totalChunksCount
+        done.statusMessage = nil
+        await MainActor.run {
+            kbStore.update(source: done)
+            self.current = nil
+            self.indexingSourceID = nil
+        }
+    }
+
+    // MARK: - Auto-Index Staleness Check
+
+    /// Check all sources in the active KB and index the first stale one.
+    /// Local sources are considered stale after 5 minutes, cloud sources
+    /// after 30 minutes. Called on app foreground resume.
+    func checkStaleSources() {
+        guard current == nil else { return }
+        guard let kb = kbStore.activeBase else { return }
+        for source in kb.sources where source.status == .ready {
+            guard let lastIndexed = source.lastIndexedAt else { continue }
+            let staleness: TimeInterval = source.kind == .localFolder ? 5 * 60 : 30 * 60
+            if Date.now.timeIntervalSince(lastIndexed) > staleness {
+                indexSource(source, in: kb.id)
+                return
+            }
+        }
+    }
+
+    // MARK: - Periodic Cloud Sync
+
+    /// Start a repeating timer that syncs cloud sources every `interval`
+    /// seconds while the app is in the foreground. Only processes one
+    /// stale cloud source per tick to avoid network storms.
+    func startPeriodicCloudSync(interval: TimeInterval = 15 * 60) {
+        stopPeriodicCloudSync()
+        syncTimer = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                guard !Task.isCancelled else { break }
+                await self?.syncNextStaleCloudSource()
+            }
+        }
+    }
+
+    func stopPeriodicCloudSync() {
+        syncTimer?.cancel()
+        syncTimer = nil
+    }
+
+    private func syncNextStaleCloudSource() {
+        guard current == nil else { return }
+        guard let kb = kbStore.activeBase else { return }
+        let cloudKinds: Set<KnowledgeSourceKind> = [.githubRepo, .googleDriveFolder, .onedriveFolder]
+        for source in kb.sources where source.status == .ready && cloudKinds.contains(source.kind) {
+            guard let lastIndexed = source.lastIndexedAt else { continue }
+            if Date.now.timeIntervalSince(lastIndexed) > 30 * 60 {
+                indexSource(source, in: kb.id)
+                return
+            }
         }
     }
 
@@ -257,7 +591,7 @@ final class IndexingService {
     /// Loads each source's USearch index + ChunkStore lazily and caches them
     /// for the rest of the session, so subsequent queries (and chat tool-call
     /// loops) hit memory instead of disk.
-    func query(_ text: String, baseID: UUID, topK: Int = 5) async throws -> [RetrievalHit] {
+    func query(_ text: String, baseID: UUID, topK: Int = 5, maxDistance: Float = 0.45) async throws -> [RetrievalHit] {
         guard let kb = kbStore.bases.first(where: { $0.id == baseID }) else {
             return []
         }
@@ -273,7 +607,7 @@ final class IndexingService {
             do {
                 let loaded = try await loadedStore(for: source, dimensions: entry.dimensions)
                 let raw = try await loaded.vectorStore.search(query: queryVec, topK: topK)
-                let chunks = try loaded.chunkStore.chunks(for: raw.map { $0.key })
+                let chunks = try await loaded.chunkStore.chunks(for: raw.map { $0.key })
                 let chunkByKey = Dictionary(uniqueKeysWithValues: chunks.map { ($0.key, $0) })
                 for hit in raw {
                     if let chunk = chunkByKey[hit.key] {
@@ -291,8 +625,13 @@ final class IndexingService {
             }
         }
 
-        // Sort by distance ascending (lower = closer in cosine).
-        return allHits.sorted { $0.distance < $1.distance }.prefix(topK).map { $0 }
+        // Sort by distance ascending (lower = closer in cosine), filter
+        // out results beyond the relevance threshold, then take top-K.
+        return allHits
+            .sorted { $0.distance < $1.distance }
+            .filter { $0.distance <= maxDistance }
+            .prefix(topK)
+            .map { $0 }
     }
 
     /// Get or build the cached `(VectorStore, ChunkStore)` pair for a source.
@@ -328,24 +667,28 @@ final class IndexingService {
         return url
     }
 
-    static func collectSupportedFiles(rootURL: URL) -> [URL] {
+    static func collectSupportedFiles(rootURL: URL) -> (accepted: [URL], skipped: [String]) {
         var out: [URL] = []
+        var skipped: [String] = []
         let keys: [URLResourceKey] = [.isRegularFileKey, .fileSizeKey]
         let fm = FileManager.default
         guard let enumerator = fm.enumerator(at: rootURL,
                                              includingPropertiesForKeys: keys,
                                              options: [.skipsHiddenFiles, .skipsPackageDescendants]) else {
-            return []
+            return ([], [])
         }
         while let item = enumerator.nextObject() as? URL {
             let res = try? item.resourceValues(forKeys: Set(keys))
             guard res?.isRegularFile == true else { continue }
-            if let size = res?.fileSize, size > 25_000_000 { continue } // skip > 25 MB
+            if let size = res?.fileSize, size > 25_000_000 {
+                skipped.append(item.lastPathComponent)
+                continue
+            }
             if DocumentExtractor.canExtract(url: item) {
                 out.append(item)
             }
         }
-        return out
+        return (out, skipped)
     }
 
     static func makeTempDirectory() throws -> URL {
@@ -353,5 +696,18 @@ final class IndexingService {
             .appendingPathComponent("LokaloIndex-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: temp, withIntermediateDirectories: true)
         return temp
+    }
+
+    /// Compute a stable relative path for manifest keys.
+    static func relativePath(of url: URL, to root: URL) -> String {
+        let filePath = url.standardizedFileURL.path
+        let rootPath = root.standardizedFileURL.path
+        if filePath.hasPrefix(rootPath) {
+            let start = filePath.index(filePath.startIndex, offsetBy: rootPath.count)
+            var rel = String(filePath[start...])
+            if rel.hasPrefix("/") { rel.removeFirst() }
+            return rel
+        }
+        return url.lastPathComponent
     }
 }

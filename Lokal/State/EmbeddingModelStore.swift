@@ -24,6 +24,11 @@ final class EmbeddingModelStore {
 
     var hasInstalled: Bool { !installedIDs.isEmpty }
 
+    /// Hook so IndexingService can invalidate all cached stores when the
+    /// active embedding model changes (different dimensions / weights
+    /// invalidate every existing vector). Wired in `LokalApp.task`.
+    var onActiveModelChanged: (() -> Void)?
+
     private var loadedEngine: LlamaEmbeddingEngine?
     private var loadedEngineEntryID: String?
 
@@ -65,6 +70,7 @@ final class EmbeddingModelStore {
         // Drop any cached engine — it might belong to a different model.
         loadedEngine = nil
         loadedEngineEntryID = nil
+        onActiveModelChanged?()
     }
 
     func remove(_ id: String) {
@@ -77,6 +83,7 @@ final class EmbeddingModelStore {
         }
         if activeID == id {
             activeID = installedIDs.first
+            onActiveModelChanged?()
         }
     }
 

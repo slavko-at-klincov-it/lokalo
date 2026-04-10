@@ -8,7 +8,6 @@
 import Foundation
 import Network
 import Observation
-import CryptoKit
 
 /// Coarse classification of the active network path. The download manager
 /// uses this to honor the user's "Modelle ohne WLAN laden" preference.
@@ -377,22 +376,9 @@ final class DownloadManager {
         }
     }
 
-    /// Streams the file through a CryptoKit SHA-256 hasher in 1 MB
-    /// chunks so we never hold more than one chunk in memory at a time.
-    /// Returns the digest as a lowercase hex string for direct
-    /// comparison against `models.json`.
+    /// Forwards to the shared `FileHasher` utility.
     nonisolated private static func sha256Hex(of fileURL: URL) throws -> String {
-        let handle = try FileHandle(forReadingFrom: fileURL)
-        defer { try? handle.close() }
-        var hasher = SHA256()
-        let chunkSize = 1 << 20 // 1 MiB
-        while true {
-            let chunk = handle.readData(ofLength: chunkSize)
-            if chunk.isEmpty { break }
-            hasher.update(data: chunk)
-        }
-        let digest = hasher.finalize()
-        return digest.map { String(format: "%02x", $0) }.joined()
+        try FileHasher.sha256Hex(of: fileURL)
     }
 }
 
