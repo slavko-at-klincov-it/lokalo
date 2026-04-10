@@ -47,8 +47,18 @@ struct MessageBubble: View {
             } else {
                 Group {
                     if isStreaming {
-                        Text(message.content) +
-                        Text(" ▍").foregroundColor(.accentColor.opacity(caretOpacity))
+                        // Text and caret are separate views so the caret's
+                        // .repeatForever animation doesn't leak into the
+                        // text content updates. Using `withAnimation` for
+                        // the caret caused the ENTIRE text to blink because
+                        // SwiftUI's transaction system propagated the
+                        // .repeatForever to concurrent streamingBuffer
+                        // state changes.
+                        Text(message.content)
+                        + Text(" ▍")
+                            .foregroundColor(
+                                .accentColor.opacity(caretOpacity)
+                            )
                     } else {
                         Text(message.content)
                     }
@@ -58,11 +68,25 @@ struct MessageBubble: View {
                 .multilineTextAlignment(.leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .textSelection(.enabled)
+                .onChange(of: isStreaming) { _, streaming in
+                    if streaming {
+                        caretOpacity = 1.0
+                    }
+                }
+                // Scoped animation: ONLY caretOpacity changes are animated,
+                // NOT the text content. This is the critical difference vs
+                // the old `withAnimation(.repeatForever)` in `.onAppear`.
+                .animation(
+                    isStreaming
+                        ? .easeInOut(duration: 0.6).repeatForever(autoreverses: true)
+                        : .default,
+                    value: caretOpacity
+                )
                 .onAppear {
                     if isStreaming {
-                        withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) {
-                            caretOpacity = 0
-                        }
+                        // Set WITHOUT withAnimation — the .animation(value:)
+                        // modifier above handles the animation scoping.
+                        caretOpacity = 0
                     }
                 }
                 if let citations = message.citations, !citations.isEmpty {

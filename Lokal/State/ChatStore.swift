@@ -323,20 +323,27 @@ final class ChatStore {
             self.loadState = .loading(modelID: target.id, progress: 1.0)
             self.engine = engine
             await engine.updateSettings(settings)
+
+            // Warm-up: run a tiny invisible inference pass BEFORE setting
+            // loadState to .ready. The ModelSwitchOverlay stays visible
+            // during this phase so the user sees "loading 100%" until the
+            // engine has completed one full prefill+decode cycle. This
+            // eliminates the first-prompt flicker caused by Metal pipeline
+            // cold-start, KV cache initialization, and sampler chain setup
+            // all happening on the first real user prompt.
+            await warmUpEngine(engine)
+
             self.loadState = .ready(modelID: target.id)
 
             // Sync messages from the active session so the ChatView has
-            // the correct data after the engine finishes loading. Without
-            // this the stored `messages` array can be stale (empty or from
-            // a previous session) after app launch.
+            // the correct data after the engine finishes loading.
             if let activeID = sessionStore.activeSessionID {
                 self.messages = sessionStore.messages(for: activeID)
             }
 
             // Sync the active session's chatModelID with the newly loaded
             // model so a user-initiated picker swap is reflected in the
-            // session. If the session already pointed at this model (which
-            // is the common multi-chat path), this is a no-op.
+            // session.
             if var active = sessionStore.activeSession, active.chatModelID != target.id {
                 active.chatModelID = target.id
                 sessionStore.updateMeta(active)
@@ -353,6 +360,42 @@ final class ChatStore {
             }
         }
         self.loadCancelFlag = nil
+    }
+
+    /// Run a minimal inference pass (a few tokens) and discard the output.
+    /// This warms the Metal compute pipeline, the KV cache, and the sampler
+    /// chain so the user's first real prompt doesn't pay the cold-start cost.
+    /// Also runs a phantom `isStreaming` toggle so SwiftUI's view hierarchy
+    /// has gone through one empty→streaming→idle cycle before the user types.
+    private func warmUpEngine(_ engine: LlamaEngine) async {
+        FileLog.write("warmUpEngine: starting invisible warm-up")
+
+        // 1. Phantom UI cycle — the streaming bubble appears for one frame
+        //    and immediately disappears. This forces SwiftUI to initialise
+        //    the LazyVStack + MessageBubble path once (including .onAppear).
+        streamingBuffer = " "
+        isStreaming = true
+        // Yield so SwiftUI can render one frame with the bubble.
+        await Task.yield()
+        streamingBuffer = ""
+        isStreaming = false
+
+        // 2. Engine warm-up — prefill + a few decode steps on a tiny prompt.
+        //    Runs on a background thread, output is discarded.
+        do {
+            let warmupResult = try await Task.detached(priority: .background) {
+                let stream = await engine.generate(prompt: "Hi", stopStrings: [])
+                var text = ""
+                for try await chunk in stream {
+                    text += chunk
+                    if text.count > 30 { break }
+                }
+                return text
+            }.value
+            FileLog.write("warmUpEngine: done (\(warmupResult.count) chars)")
+        } catch {
+            FileLog.write("warmUpEngine: failed — \(error.localizedDescription)")
+        }
     }
 
     /// Tear down the current engine actor, waiting for `shutdown()` to finish.

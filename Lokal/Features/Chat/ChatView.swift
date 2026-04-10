@@ -79,14 +79,18 @@ struct ChatView: View {
                 .transition(.opacity)
             }
         }
-        .animation(.easeInOut(duration: 0.18), value: chatStore.pendingModelSwitch)
-        .animation(.easeInOut(duration: 0.25), value: showMultiChatHint)
+        // REMOVED: .animation(value: pendingModelSwitch) and
+        // .animation(value: showMultiChatHint) — these implicit animations
+        // on the outer VStack leaked into the streaming bubble, causing
+        // per-token layout animation when state changed during streaming.
         .task {
-            // Show the multi-chat tooltip once, ~600 ms after the chat tab
-            // first appears, then auto-dismiss after 5 s. The flag is set
-            // the first time the user actually taps the drawer button.
+            // Show the multi-chat tooltip once, ~1.5 s after the chat tab
+            // first appears, but ONLY if the user isn't already streaming.
+            // The old 600 ms delay collided with first-prompt streaming
+            // because the tooltip animation triggered mid-generation.
             guard !multiChatHintSeen, !showMultiChatHint else { return }
-            try? await Task.sleep(nanoseconds: 600_000_000)
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            guard !chatStore.isStreaming else { return }
             showMultiChatHint = true
             try? await Task.sleep(nanoseconds: 5_000_000_000)
             if showMultiChatHint {
@@ -354,23 +358,25 @@ struct ChatView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 16) {
+                    // Empty state and message list coexist — no if/else
+                    // branch swap. Switching from emptyChatState to ForEach
+                    // via if/else caused a full view-hierarchy rebuild on
+                    // the first prompt, which collided with streaming.
                     if chatStore.messages.isEmpty && !chatStore.isStreaming {
                         emptyChatState
                             .padding(.top, 80)
-                    } else {
-                        ForEach(chatStore.messages) { message in
-                            MessageBubble(message: message, isStreaming: false)
-                                .id(message.id)
-                        }
-                        if chatStore.isStreaming {
-                            // Live streaming bubble — its own ChatMessage so the
-                            // ForEach above doesn't have to be invalidated each token.
-                            MessageBubble(
-                                message: ChatMessage(role: .assistant, content: chatStore.streamingBuffer),
-                                isStreaming: true
-                            )
-                            .id("STREAMING")
-                        }
+                    }
+
+                    ForEach(chatStore.messages) { message in
+                        MessageBubble(message: message, isStreaming: false)
+                            .id(message.id)
+                    }
+                    if chatStore.isStreaming {
+                        MessageBubble(
+                            message: ChatMessage(role: .assistant, content: chatStore.streamingBuffer),
+                            isStreaming: true
+                        )
+                        .id("STREAMING")
                     }
                     Color.clear.frame(height: 1).id("BOTTOM")
                 }
@@ -554,15 +560,11 @@ struct ChatView: View {
     private func trySend() {
         guard sendEnabled else { return }
         let text = input
-        FileLog.write("trySend: input.count=\(text.count) chars, focused=\(inputFocused)")
-        inputFocused = false
         input = ""
-        FileLog.write("trySend: cleared, input=\"\(input)\"")
         chatStore.send(text)
-        DispatchQueue.main.async {
-            self.inputFocused = true
-            FileLog.write("trySend: refocused, input=\"\(self.input)\"")
-        }
+        // Keyboard stays open — dismissing + re-showing it caused a
+        // 250 ms layout animation (tab bar padding 0↔52 pt) that
+        // collided with the first streaming tokens → flicker.
     }
 
     private func stop() {

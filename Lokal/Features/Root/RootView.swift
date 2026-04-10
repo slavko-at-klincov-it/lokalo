@@ -128,9 +128,10 @@ struct RootView: View {
         ) { _ in
             isKeyboardVisible = false
         }
-        .task(id: modelStore.activeID) {
-            await chatStore.ensureEngineLoaded()
-        }
+        // NOTE: .task(id: modelStore.activeID) for engine loading was
+        // removed from RootView — ChatView.swift has its own .task(id:)
+        // that calls switchTo + syncMessages. Having both caused a double
+        // switchTo race condition that contributed to first-prompt flicker.
         .task {
             tabHaptic.prepare()
 
