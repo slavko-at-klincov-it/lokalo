@@ -25,8 +25,6 @@ struct SettingsSheet: View {
     // they made in the first-launch flow. Same UserDefaults keys as Beat 2.
     @AppStorage(OnboardingPreferences.cellularDownloadsAllowedKey)
     private var cellularAllowed: Bool = false
-    @AppStorage(OnboardingPreferences.preferredFirstModelIDKey)
-    private var preferredFirstModelID: String = OnboardingPreferences.defaultFirstModelID
     @AppStorage(OnboardingPreferences.hasCompletedKey)
     private var hasCompletedOnboarding: Bool = false
     @AppStorage(OnboardingPreferences.appearanceModeKey)
@@ -75,20 +73,6 @@ struct SettingsSheet: View {
                                 .monospacedDigit()
                         }
                     }
-                    NavigationLink {
-                        StorageDiagnosticView()
-                    } label: {
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Speicherdiagnose")
-                                Text("Zeigt jede Datei in Documents/models/ und erlaubt Orphan-Cleanup.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } icon: {
-                            Image(systemName: "stethoscope")
-                        }
-                    }
                 }
 
                 Section("Personalisierung") {
@@ -104,25 +88,6 @@ struct SettingsSheet: View {
                             Image(systemName: "antenna.radiowaves.left.and.right")
                         }
                     }
-                    Picker(selection: $preferredFirstModelID) {
-                        Text("Später wählen").tag("")
-                        ForEach(ModelCatalog.phoneCompatible.sorted { $0.sizeBytes < $1.sizeBytes }) { entry in
-                            Text("\(entry.displayName) · \(String(format: "%.1f GB", entry.sizeGB))")
-                                .tag(entry.id)
-                        }
-                    } label: {
-                        Label {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Empfohlenes Modell")
-                                Text("Wird beim ersten Start hervorgehoben.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        } icon: {
-                            Image(systemName: "shippingbox")
-                        }
-                    }
-
                     Picker(selection: $appearanceModeRaw) {
                         ForEach(AppearanceMode.allCases) { mode in
                             Text(mode.label).tag(mode.rawValue)
@@ -167,22 +132,6 @@ struct SettingsSheet: View {
                     } label: {
                         Label("MCP-Server", systemImage: "bolt.horizontal")
                     }
-                }
-
-                Section {
-                    Label {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Generierungs-Einstellungen")
-                                .font(.body)
-                            Text("Temperatur, System Prompt und weitere Parameter findest du direkt im jeweiligen Chat — tippe oben rechts auf das Zahnrad-Symbol.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "text.bubble")
-                    }
-                } header: {
-                    Text("Pro-Chat-Einstellungen")
                 }
 
                 Section {
