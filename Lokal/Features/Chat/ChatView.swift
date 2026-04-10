@@ -59,13 +59,6 @@ struct ChatView: View {
             }
         }
         .overlay {
-            // Slide-in chat drawer. Lives on the `ChatView` level so it
-            // stays inside the Chat tab; the MainTabBar remains visible
-            // and interactive below the drawer, matching the
-            // Poe/LM-Studio pattern.
-            chatDrawerOverlay
-        }
-        .overlay {
             // Center card shown when the active session's model does
             // not match the currently loaded one. Composer is disabled
             // via `chatStore.canSend` while this is visible.
@@ -118,6 +111,15 @@ struct ChatView: View {
             // chips as the user scrolls up — matching the native iOS
             // "content under the navigation bar" behaviour.
             customTopBar
+                .opacity(showChatDrawer ? 0 : 1)
+                .allowsHitTesting(!showChatDrawer)
+        }
+        .overlay {
+            // Slide-in chat drawer. Applied after .safeAreaInset so the
+            // overlay gets the full view bounds (including the top-bar
+            // region). The top-bar chips are hidden via opacity so they
+            // don't peek through the semi-transparent backdrop.
+            chatDrawerOverlay
         }
         .lokaloThemedBackground()
         .modelSwitchOverlay()
@@ -154,6 +156,7 @@ struct ChatView: View {
             let args = ProcessInfo.processInfo.arguments
             if args.contains("-LokalAutoOpenSettings") { showChatSettings = true }
             if args.contains("-LokalAutoOpenPicker") { showModelPicker = true }
+            if args.contains("-LokalAutoOpenDrawer") { showChatDrawer = true }
         }
     }
 
