@@ -158,7 +158,8 @@ actor LlamaEngine {
     /// Loading is synchronous; call this from a background `Task.detached`.
     static func load(path: String,
                      settings: GenerationSettings = .default,
-                     progress: (@Sendable (Double) -> Void)? = nil) throws -> LlamaEngine {
+                     progress: (@Sendable (Double) -> Void)? = nil,
+                     shouldCancel: (@Sendable () -> Bool)? = nil) throws -> LlamaEngine {
         backendInit()
 
         var modelParams = llama_model_default_params()
@@ -174,14 +175,18 @@ actor LlamaEngine {
         // forwards the float. The box is released right after the load returns.
         var progressBox: Unmanaged<ProgressBox>?
         if let progress {
-            let box = ProgressBox(callback: progress)
+            let box = ProgressBox(
+                callback: progress,
+                cancelChecker: shouldCancel ?? { false }
+            )
             let unmanaged = Unmanaged.passRetained(box)
             progressBox = unmanaged
             modelParams.progress_callback = { value, userData in
                 guard let userData else { return true }
                 let box = Unmanaged<ProgressBox>.fromOpaque(userData).takeUnretainedValue()
                 box.callback(Double(value))
-                return true
+                // Returning `false` tells llama.cpp to abort the load.
+                return !box.cancelChecker()
             }
             modelParams.progress_callback_user_data = unmanaged.toOpaque()
         }
@@ -484,10 +489,16 @@ actor LlamaEngine {
 
 /// Reference-typed wrapper around the load-progress closure so we can shuttle
 /// it through `llama_progress_callback_user_data` (a `void *`).
+/// `cancelChecker` is polled on every progress tick — returning `true` makes
+/// the C callback return `false`, which tells llama.cpp to abort the load
+/// and return `NULL`.
 private final class ProgressBox: @unchecked Sendable {
     let callback: @Sendable (Double) -> Void
-    init(callback: @escaping @Sendable (Double) -> Void) {
+    let cancelChecker: @Sendable () -> Bool
+    init(callback: @escaping @Sendable (Double) -> Void,
+         cancelChecker: @escaping @Sendable () -> Bool = { false }) {
         self.callback = callback
+        self.cancelChecker = cancelChecker
     }
 }
 

@@ -156,6 +156,15 @@ final class IndexingService {
                     self?.current = nil
                 }
             }
+
+            // Free the embedding engine after every indexing run so the
+            // chat LLM has the full RAM budget. The engine is lazy-loaded
+            // again on the next RAG query via `ensureEngine()`, so this
+            // is invisible to the user — just a brief (~0.5 s) reload
+            // delay on the first query after indexing.
+            await MainActor.run {
+                embeddingStoreRef.unloadEngine()
+            }
         }
     }
 

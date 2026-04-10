@@ -110,6 +110,11 @@ final class ChatStore {
     /// starting.
     private var currentSwitchTask: Task<Void, Never>?
 
+    /// Thread-safe flag that the progress callback in `LlamaEngine.load`
+    /// polls to decide whether to abort mid-load. Set by `cancelModelLoad()`,
+    /// cleared at the start of every new `performSwitch`.
+    private var loadCancelFlag: LoadCancelFlag?
+
     init(modelStore: ModelStore,
          kbStore: KnowledgeBaseStore,
          sessionStore: ChatSessionStore,
@@ -283,6 +288,11 @@ final class ChatStore {
 
         loadState = .loading(modelID: target.id, progress: 0)
 
+        // Fresh cancel flag for this load. `cancelModelLoad()` sets it;
+        // the llama.cpp progress callback polls it every tick.
+        let cancelFlag = LoadCancelFlag()
+        self.loadCancelFlag = cancelFlag
+
         do {
             let path = ModelStore.fileURL(for: target).path
             // Use the session's sampling if available, else fall back.
@@ -298,8 +308,12 @@ final class ChatStore {
                 }
             }
 
+            let shouldCancel: @Sendable () -> Bool = {
+                cancelFlag.isCancelled
+            }
+
             let engine = try await Task.detached(priority: .userInitiated) {
-                try LlamaEngine.load(path: path, settings: settings, progress: progressHandler)
+                try LlamaEngine.load(path: path, settings: settings, progress: progressHandler, shouldCancel: shouldCancel)
             }.value
 
             // Make sure the final 1.0 frame is rendered even if the callback
@@ -319,8 +333,16 @@ final class ChatStore {
             }
         } catch {
             self.engine = nil
-            self.loadState = .error(error.lokaloMessage)
+            if cancelFlag.isCancelled {
+                // User pressed "Abbrechen" — go back to idle silently
+                // instead of showing the error overlay.
+                self.loadState = .idle
+                FileLog.write("performSwitch: cancelled by user")
+            } else {
+                self.loadState = .error(error.lokaloMessage)
+            }
         }
+        self.loadCancelFlag = nil
     }
 
     /// Tear down the current engine actor, waiting for `shutdown()` to finish.
@@ -339,6 +361,15 @@ final class ChatStore {
         // Only step forward; suppress jitter back from the callback.
         guard clamped >= current + 0.01 || clamped >= 0.999 else { return }
         loadState = .loading(modelID: modelID, progress: clamped)
+    }
+
+    /// Cancel an in-progress model load. The llama.cpp progress callback
+    /// polls the cancel flag and returns `false` on the next tick, which
+    /// makes `llama_model_load_from_file` return `NULL`. `performSwitch`
+    /// detects the flag and silently goes to `.idle` instead of showing
+    /// an error overlay.
+    func cancelModelLoad() {
+        loadCancelFlag?.cancel()
     }
 
     /// Dismiss a sticky `.error` so the overlay closes.
@@ -558,5 +589,23 @@ final class ChatStore {
                 FileLog.write("stream: state cleared, messages=\(strongSelf.messages.count)")
             }
         }
+    }
+}
+
+// MARK: - Load cancel flag
+
+/// Thread-safe boolean flag that the llama.cpp progress callback polls to
+/// decide whether to abort a model load. Written from the main actor
+/// (`cancelModelLoad()`), read from the llama.cpp loader thread.
+final class LoadCancelFlag: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _cancelled = false
+
+    var isCancelled: Bool {
+        lock.withLock { _cancelled }
+    }
+
+    func cancel() {
+        lock.withLock { _cancelled = true }
     }
 }

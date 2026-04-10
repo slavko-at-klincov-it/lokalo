@@ -38,6 +38,13 @@ struct ModelSwitchOverlay: View {
                 }
                 .padding(.horizontal, 32)
                 .frame(maxWidth: 360)
+                Button("Abbrechen") {
+                    chatStore.cancelModelLoad()
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .tint(.secondary)
+                .padding(.top, 4)
             } else if case .unloading = chatStore.loadState {
                 ProgressView()
                     .controlSize(.large)
