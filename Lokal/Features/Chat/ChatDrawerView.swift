@@ -38,13 +38,22 @@ struct ChatDrawerView: View {
                     ForEach(sortedSessions) { session in
                         rowView(for: session)
                             .listRowBackground(
-                                (session.id == sessionStore.activeSessionID)
-                                ? Color.accentColor.opacity(0.08)
-                                : Color.clear
+                                Rectangle()
+                                    .fill(session.id == sessionStore.activeSessionID
+                                          ? Color.accentColor.opacity(0.08)
+                                          : Color.clear)
                             )
                             .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
                             .contentShape(Rectangle())
                             .onTapGesture { selectSession(session) }
+                            .swipeActions(edge: .leading, allowsFullSwipe: false) {
+                                Button {
+                                    duplicateAsTemplate(session)
+                                } label: {
+                                    Label("Vorlage", systemImage: "doc.on.doc")
+                                }
+                                .tint(.accentColor)
+                            }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button(role: .destructive) {
                                     requestDelete(session.id)
@@ -237,6 +246,15 @@ struct ChatDrawerView: View {
     private func duplicate(_ session: ChatSession) {
         if let copy = sessionStore.duplicate(session.id) {
             sessionStore.setActive(copy.id)
+        }
+    }
+
+    private func duplicateAsTemplate(_ session: ChatSession) {
+        if let copy = sessionStore.duplicateAsTemplate(session.id) {
+            chatStore.switchActiveSession(to: copy.id)
+            withAnimation(.interpolatingSpring(stiffness: 380, damping: 32)) {
+                isPresented = false
+            }
         }
     }
 

@@ -496,10 +496,27 @@ final class ChatStore {
         let indexingServiceRef = self.indexingService
         let mcpStoreRef = self.mcpStore
         let activeFamily = active.chatTemplate
-        let baseSystem = systemPrompt
         let snapshotMessages = sessionStore.messages(for: sessionID)
         let queryText = trimmed
         let sessionKBID = sessionStore.activeSession?.knowledgeBaseID
+
+        // Compose the effective system prompt: optionally prepend the
+        // global "Über mich" user profile if the session has it enabled.
+        let includeProfile = sessionStore.activeSession?.includeUserProfile ?? true
+        let userProfile = includeProfile
+            ? (UserDefaults.standard.string(forKey: "Lokal.userProfile") ?? "")
+            : ""
+        let baseSystem: String
+        if userProfile.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            baseSystem = systemPrompt
+        } else {
+            baseSystem = """
+            Über den Nutzer:
+            \(userProfile)
+
+            \(systemPrompt)
+            """
+        }
 
         streamTask?.cancel()
         streamTask = Task.detached(priority: .userInitiated) { [engine, weak self] in

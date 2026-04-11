@@ -201,7 +201,7 @@ struct LokalApp: App {
                    let seedModelID = modelStore.activeID {
                     sessionStore.seedDefaultSessionIfEmpty(
                         modelID: seedModelID,
-                        knowledgeBaseID: kbStore.ragEnabled ? kbStore.activeBaseID : nil
+                        knowledgeBaseID: nil
                     )
                     FileLog.write("sessionStore seeded default session (model=\(seedModelID))")
                 }

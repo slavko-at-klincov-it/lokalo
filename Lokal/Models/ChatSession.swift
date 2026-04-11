@@ -143,6 +143,9 @@ struct ChatSession: Identifiable, Codable, Hashable, Sendable {
     // RAG
     var knowledgeBaseID: UUID?      // nil → RAG off for this chat
 
+    // User profile
+    var includeUserProfile: Bool    // inject global "Über mich" text into system prompt
+
     // UI
     var isPinned: Bool              // reserved for v2 sorting
 
@@ -157,6 +160,7 @@ struct ChatSession: Identifiable, Codable, Hashable, Sendable {
         systemPromptPreset: SystemPromptPreset = .lokaloDefault,
         systemPromptText: String? = nil,
         knowledgeBaseID: UUID? = nil,
+        includeUserProfile: Bool = true,
         isPinned: Bool = false
     ) {
         self.id = id
@@ -169,7 +173,28 @@ struct ChatSession: Identifiable, Codable, Hashable, Sendable {
         self.systemPromptPreset = systemPromptPreset
         self.systemPromptText = systemPromptText ?? systemPromptPreset.defaultText
         self.knowledgeBaseID = knowledgeBaseID
+        self.includeUserProfile = includeUserProfile
         self.isPinned = isPinned
+    }
+
+    // MARK: - Codable migration
+
+    /// Decodes gracefully when new fields are missing in persisted JSON
+    /// (e.g. `includeUserProfile` added after existing sessions were saved).
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        title = try c.decode(String.self, forKey: .title)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        updatedAt = try c.decode(Date.self, forKey: .updatedAt)
+        lastMessagePreview = try c.decode(String.self, forKey: .lastMessagePreview)
+        chatModelID = try c.decode(String.self, forKey: .chatModelID)
+        settings = try c.decode(GenerationSettings.self, forKey: .settings)
+        systemPromptPreset = try c.decode(SystemPromptPreset.self, forKey: .systemPromptPreset)
+        systemPromptText = try c.decode(String.self, forKey: .systemPromptText)
+        knowledgeBaseID = try c.decodeIfPresent(UUID.self, forKey: .knowledgeBaseID)
+        includeUserProfile = try c.decodeIfPresent(Bool.self, forKey: .includeUserProfile) ?? true
+        isPinned = try c.decodeIfPresent(Bool.self, forKey: .isPinned) ?? false
     }
 
     /// Human-readable title for the drawer list. Falls back to a trimmed

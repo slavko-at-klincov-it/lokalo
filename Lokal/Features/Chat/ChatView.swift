@@ -600,8 +600,7 @@ struct ChatView: View {
         }
         let newSession = sessionStore.create(
             modelID: seedModelID,
-            preset: .lokaloDefault,
-            knowledgeBaseID: sessionStore.activeSession?.knowledgeBaseID
+            preset: .lokaloDefault
         )
         // Use switchActiveSession (not sessionStore.setActive directly)
         // so ChatStore.messages is synced to the new empty session.

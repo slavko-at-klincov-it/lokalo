@@ -158,10 +158,22 @@ struct ChatSettingsSheet: View {
                 }
             }
             .pickerStyle(.navigationLink)
+
+            Toggle(
+                "Über-mich-Infos einbinden",
+                isOn: Binding<Bool>(
+                    get: { sessionStore.activeSession?.includeUserProfile ?? true },
+                    set: { newValue in
+                        guard var session = sessionStore.activeSession else { return }
+                        session.includeUserProfile = newValue
+                        sessionStore.updateMeta(session)
+                    }
+                )
+            )
         } header: {
-            Text("Wissen")
+            Text("Wissen & Kontext")
         } footer: {
-            Text("RAG-Quellen werden nur verwendet, wenn hier eine Wissensbasis gewählt ist.")
+            Text("Die Wissensbasis liefert RAG-Quellen. \u{201E}Über mich\u{201C} speist deinen persönlichen Kontext aus den Einstellungen in den System Prompt ein.")
         }
     }
 

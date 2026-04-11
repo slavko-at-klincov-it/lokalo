@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		0695BA95228327ED6B9CF4F2 /* ConnectionsSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 631C8786EE9C1D67FD8FA755 /* ConnectionsSettingsView.swift */; };
 		0948BAFAB27A5AA3B6FA9354 /* models.json in Resources */ = {isa = PBXBuildFile; fileRef = 56CC2E9D35099663BB9768DF /* models.json */; };
+		09F7B7A223DD020B9A2494D6 /* UserProfileEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07A1F9E1F55EFC5C5E637794 /* UserProfileEditor.swift */; };
 		0AF20F14570F1E9D03E0565F /* MCP in Frameworks */ = {isa = PBXBuildFile; productRef = 596262882E81BC8276FF8A1C /* MCP */; };
 		0D008BCB194602204D0C64A9 /* IndexingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F439352E837668B9B59A2E46 /* IndexingService.swift */; };
 		0D2FF4D09C72E29469169EAE /* ChatSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D33156AA97A032E5BE683EE3 /* ChatSessionStore.swift */; };
@@ -134,6 +135,7 @@
 		000A9BBE10AFA045FE88B646 /* GitHubOAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GitHubOAuth.swift; sourceTree = "<group>"; };
 		049646463D9E28DF4513ED40 /* MainTabBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainTabBar.swift; sourceTree = "<group>"; };
 		060B120B87BC77565BF326EA /* OAuthTokenVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthTokenVault.swift; sourceTree = "<group>"; };
+		07A1F9E1F55EFC5C5E637794 /* UserProfileEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserProfileEditor.swift; sourceTree = "<group>"; };
 		0AFAF9A49728A152966F58E2 /* Beat1SternenwortView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Beat1SternenwortView.swift; sourceTree = "<group>"; };
 		0D943D4FC0E438403382E146 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		0DA9DBB3778A7C4F2CD97628 /* ModelDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelDetailView.swift; sourceTree = "<group>"; };
@@ -448,6 +450,7 @@
 				7C66AE09CF5EE89A7D87B96B /* MCPServerListView.swift */,
 				FFAA7A518B5E64312A4A1768 /* SettingsSheet.swift */,
 				202E13E402A78076008FA3A7 /* StorageDiagnosticView.swift */,
+				07A1F9E1F55EFC5C5E637794 /* UserProfileEditor.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -718,6 +721,7 @@
 				D8C3D3D6F88B843DD522F501 /* SourceWatcher.swift in Sources */,
 				8BFFA3AFA1AD2010833B2986 /* StorageDiagnosticView.swift in Sources */,
 				A9A7EE132BB0C0C029F271B4 /* ToolCallParser.swift in Sources */,
+				09F7B7A223DD020B9A2494D6 /* UserProfileEditor.swift in Sources */,
 				6218EBA51E1E8A0EA11B5CF9 /* VectorStore.swift in Sources */,
 				11B373378D6DBB249CEC31C3 /* WebAuthenticator.swift in Sources */,
 			);

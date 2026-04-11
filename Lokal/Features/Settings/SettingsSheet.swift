@@ -32,6 +32,8 @@ struct SettingsSheet: View {
     @AppStorage(OnboardingPreferences.allowBackgroundActivityKey)
     private var allowBackgroundActivity: Bool = true
 
+    @AppStorage("Lokal.userProfile") private var userProfile: String = ""
+
     @State private var showOnboardingResetConfirm = false
 
     var body: some View {
@@ -73,6 +75,34 @@ struct SettingsSheet: View {
                                 .monospacedDigit()
                         }
                     }
+                }
+
+                Section {
+                    NavigationLink {
+                        UserProfileEditor(text: $userProfile)
+                    } label: {
+                        Label {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Über mich")
+                                if userProfile.isEmpty {
+                                    Text("Erzähl Lokalo wer du bist — dieser Kontext wird in jeden Chat eingespeist.")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Text(userProfile.prefix(80) + (userProfile.count > 80 ? "…" : ""))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(2)
+                                }
+                            }
+                        } icon: {
+                            Image(systemName: "person.text.rectangle")
+                        }
+                    }
+                } header: {
+                    Text("Über dich")
+                } footer: {
+                    Text("Dieser Text wird dem System Prompt jedes Chats vorangestellt, sofern dort \u{201E}Über-mich-Infos\u{201C} aktiviert ist.")
                 }
 
                 Section("Personalisierung") {

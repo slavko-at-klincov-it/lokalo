@@ -184,6 +184,28 @@ final class ChatSessionStore {
         return copy
     }
 
+    /// Duplicate a session's configuration (model, system prompt, KB,
+    /// settings) but with an empty message history. Useful for creating
+    /// a fresh conversation with the same "agent" setup.
+    @discardableResult
+    func duplicateAsTemplate(_ id: UUID) -> ChatSession? {
+        guard let source = sessions.first(where: { $0.id == id }) else { return nil }
+        let copy = ChatSession(
+            title: "",
+            chatModelID: source.chatModelID,
+            settings: source.settings,
+            systemPromptPreset: source.systemPromptPreset,
+            systemPromptText: source.systemPromptText,
+            knowledgeBaseID: source.knowledgeBaseID,
+            includeUserProfile: source.includeUserProfile
+        )
+        sessions.insert(copy, at: 0)
+        loadedMessages[copy.id] = []
+        try? persistManifest()
+        try? persistMessages(for: copy.id)
+        return copy
+    }
+
     /// Called when a knowledge base is deleted. Unlinks any sessions that
     /// pointed at the removed KB so we don't keep dangling UUIDs.
     func unlinkSessionsFromRemovedBase(_ baseID: UUID) {
