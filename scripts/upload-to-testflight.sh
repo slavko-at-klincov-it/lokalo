@@ -2,9 +2,23 @@
 #
 # upload-to-testflight.sh
 #
-# One-shot TestFlight upload using an App Store Connect API key (.p8).
-# This bypasses the recurring xcodebuild "Failed to Use Accounts" bug
-# that happens when xcodebuild can't find an Xcode-cached account.
+# End-to-end TestFlight upload: archive + export + upload in one call.
+#
+# The export/upload step uses Xcode's cached Apple ID auth (from Xcode →
+# Settings → Accounts) rather than the .p8 App Store Connect API key.
+# Reason: this .p8's scope does NOT include "Cloud Managed Distribution
+# Certificates", and when xcodebuild's export step is invoked with
+# -authenticationKey{Path,ID,IssuerID}, it routes provisioning through
+# the cloud-signing API path and errors out with "Cloud signing permission
+# error" as soon as it tries to regenerate a provisioning profile. With
+# Xcode's own Apple ID auth (slavko.klincov@hotmail.com) this works end
+# to end via the normal Dev Portal API.
+#
+# We still source the .p8 config for a pre-flight sanity check (and so
+# the file stays wired in case a future flow wants to re-enable the API
+# key path, e.g. fastlane or notarytool standalone), but we intentionally
+# do NOT pass -authenticationKey* to xcodebuild here. Verified working
+# end-to-end on 2026-04-11, Build 7.
 #
 # Setup (once):
 #   cp scripts/testflight-config.sh.template scripts/testflight-config.sh
@@ -80,15 +94,18 @@ xcodebuild \
   -archivePath "${ARCHIVE_PATH}" \
   archive
 
-echo "→ Exporting + uploading to TestFlight (using ASC API key)…"
+echo "→ Exporting + uploading to TestFlight (using Xcode Apple ID auth)…"
+# -allowProvisioningUpdates lets xcodebuild refresh/regenerate the
+# distribution provisioning profile on the fly if the local copy is
+# stale (e.g. after a new Apple Distribution cert was issued). We
+# deliberately DO NOT pass -authenticationKey* here — see the header
+# comment for why.
 xcodebuild \
   -exportArchive \
   -archivePath "${ARCHIVE_PATH}" \
   -exportOptionsPlist "${EXPORT_OPTIONS}" \
   -exportPath "${BUILD_DIR}/export" \
-  -authenticationKeyPath "${ASC_KEY_PATH}" \
-  -authenticationKeyID "${ASC_KEY_ID}" \
-  -authenticationKeyIssuerID "${ASC_ISSUER_ID}"
+  -allowProvisioningUpdates
 
 echo ""
 echo "✓ Upload complete. TestFlight will email you when processing is done"

@@ -75,18 +75,43 @@ machine the key is at `/Users/slavkoklincov/Code/Build_AppStore/AuthKey_*.p8`.
 
 ### What the upload script does
 
-1. Sources `scripts/testflight-config.sh` (the credentials)
+1. Sources `scripts/testflight-config.sh` (pre-flight sanity check on
+   the .p8 path — see note below)
 2. Optionally bumps `CFBundleVersion` if `--bump` is passed
 3. Runs `xcodegen generate`
 4. `xcodebuild archive` (Release / generic iOS)
-5. `xcodebuild -exportArchive` with `-authenticationKeyPath / KeyID / IssuerID`
-   so the upload uses the .p8 directly — no Xcode account required
+5. `xcodebuild -exportArchive -allowProvisioningUpdates` — uses Xcode's
+   cached Apple ID auth (from Xcode → Settings → Accounts) for
+   provisioning + upload. **Does not pass `-authenticationKey*`** because
+   this .p8 key's scope lacks "Cloud Managed Distribution Certificates"
+   and forcing the API-key path trips the cloud-signing block. Verified
+   end-to-end on 2026-04-11 with Build 7.
+
+### Prerequisites (one-time setup on this machine)
+
+1. **Apple Distribution cert in login keychain.** Create it via
+   Xcode → Settings → Accounts → Team → Manage Certificates → `+` →
+   "Apple Distribution". Without it, `security find-identity -v -p
+   codesigning` only lists the Apple Development cert and export fails.
+2. **Keychain partition list includes `apple-tool:` and `apple:`.**
+   Set once via:
+   ```zsh
+   read -s "KC_PASS?Login-Passwort: " && echo && \
+     security set-key-partition-list -S apple-tool:,apple: \
+     -s -k "$KC_PASS" ~/Library/Keychains/login.keychain-db && \
+     unset KC_PASS
+   ```
+   Without this, codesign prompts a dialog every call or fails with
+   `errSecInternalComponent`. "Allow all applications" in Keychain
+   Access GUI is NOT sufficient — it sets the ACL but not the
+   partition list.
 
 ### Fallback (manual upload)
 
 If the script ever fails, the archive is at `build/Lokal.xcarchive`. Open
 Xcode → Window → Organizer → Archives → "Distribute App" → "App Store
-Connect" → "Upload" → Automatic signing.
+Connect" → "Upload" → Automatic signing. This should only be needed if
+one of the prerequisites above is missing on a fresh machine.
 
 ## Project layout
 
