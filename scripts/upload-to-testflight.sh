@@ -4,21 +4,22 @@
 #
 # End-to-end TestFlight upload: archive + export + upload in one call.
 #
-# The export/upload step uses Xcode's cached Apple ID auth (from Xcode →
-# Settings → Accounts) rather than the .p8 App Store Connect API key.
-# Reason: this .p8's scope does NOT include "Cloud Managed Distribution
-# Certificates", and when xcodebuild's export step is invoked with
-# -authenticationKey{Path,ID,IssuerID}, it routes provisioning through
-# the cloud-signing API path and errors out with "Cloud signing permission
-# error" as soon as it tries to regenerate a provisioning profile. With
-# Xcode's own Apple ID auth (slavko.klincov@hotmail.com) this works end
-# to end via the normal Dev Portal API.
+# Authentication: passes the App Store Connect API key (.p8) directly to
+# xcodebuild's export step via -authenticationKey{Path,ID,IssuerID}. This
+# is intentionally NOT relying on Xcode's cached Apple ID auth, because
+# those credentials live in the macOS login keychain and disappear about
+# every other run with the dreaded "Failed to Use Accounts /
+# missing Xcode-Username" error — fixing them requires a manual sign-out
+# / sign-in dance in Xcode → Settings → Accounts which doesn't work when
+# we're driving the upload headless.
 #
-# We still source the .p8 config for a pre-flight sanity check (and so
-# the file stays wired in case a future flow wants to re-enable the API
-# key path, e.g. fastlane or notarytool standalone), but we intentionally
-# do NOT pass -authenticationKey* to xcodebuild here. Verified working
-# end-to-end on 2026-04-11, Build 7.
+# History note: an earlier iteration of this script (commit cb8c1d0)
+# moved to Xcode auth because the .p8 was tripping a "cloud signing
+# permission error" complaining about missing "Cloud Managed Distribution
+# Certificates" scope. That block has since been lifted on Apple's side,
+# and the .p8 path now works end to end with the same automatic-signing
+# ExportOptions.plist. Verified 2026-04-11 with Build 9 after Build 9's
+# initial Xcode-auth attempt blew up with the credential cache bug.
 #
 # Setup (once):
 #   cp scripts/testflight-config.sh.template scripts/testflight-config.sh
@@ -94,18 +95,22 @@ xcodebuild \
   -archivePath "${ARCHIVE_PATH}" \
   archive
 
-echo "→ Exporting + uploading to TestFlight (using Xcode Apple ID auth)…"
+echo "→ Exporting + uploading to TestFlight (using App Store Connect .p8 API key)…"
 # -allowProvisioningUpdates lets xcodebuild refresh/regenerate the
 # distribution provisioning profile on the fly if the local copy is
-# stale (e.g. after a new Apple Distribution cert was issued). We
-# deliberately DO NOT pass -authenticationKey* here — see the header
-# comment for why.
+# stale (e.g. after a new Apple Distribution cert was issued). The
+# -authenticationKey{Path,ID,IssuerID} trio bypasses Xcode's
+# Apple-ID-cache-in-keychain entirely — see the header comment for the
+# full story on why this is the safer path.
 xcodebuild \
   -exportArchive \
   -archivePath "${ARCHIVE_PATH}" \
   -exportOptionsPlist "${EXPORT_OPTIONS}" \
   -exportPath "${BUILD_DIR}/export" \
-  -allowProvisioningUpdates
+  -allowProvisioningUpdates \
+  -authenticationKeyPath "${ASC_KEY_PATH}" \
+  -authenticationKeyID "${ASC_KEY_ID}" \
+  -authenticationKeyIssuerID "${ASC_ISSUER_ID}"
 
 echo ""
 echo "✓ Upload complete. TestFlight will email you when processing is done"
