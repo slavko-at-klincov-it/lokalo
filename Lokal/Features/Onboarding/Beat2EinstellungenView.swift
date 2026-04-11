@@ -39,10 +39,20 @@ struct Beat2EinstellungenView: View {
     /// view watches `isActive` and starts the staggered fade-in the
     /// moment the user commits the swipe.
     let isActive: Bool
+    /// Fired the first time the user taps either Theme-Capsule. The
+    /// parent `OnboardingFlow` uses this to lift its `.dark` colorScheme
+    /// lock so Beat 2 can render in the live user-chosen theme as a
+    /// preview, instead of staying branded-dark forever.
+    let onThemePicked: () -> Void
     let onComplete: () -> Void
 
-    init(isActive: Bool = true, onComplete: @escaping () -> Void) {
+    init(
+        isActive: Bool = true,
+        onThemePicked: @escaping () -> Void = {},
+        onComplete: @escaping () -> Void
+    ) {
         self.isActive = isActive
+        self.onThemePicked = onThemePicked
         self.onComplete = onComplete
     }
 
@@ -176,7 +186,10 @@ struct Beat2EinstellungenView: View {
                     Beat2ThemeCard(
                         selectedMode: Binding(
                             get: { AppearanceMode(rawValue: appearanceModeRaw) ?? .dark },
-                            set: { appearanceModeRaw = $0.rawValue }
+                            set: { newMode in
+                                appearanceModeRaw = newMode.rawValue
+                                onThemePicked()
+                            }
                         )
                     )
                     .opacity(themeCardVisible ? 1 : 0)

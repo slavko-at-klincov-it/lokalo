@@ -38,6 +38,22 @@ struct OnboardingFlow: View {
     /// of Beat 1. Animated back to 0 on gesture release.
     @State private var dragOffset: CGFloat = 0
 
+    /// Flips true the moment the user taps either Theme-Capsule in
+    /// Beat 2. Until then the onboarding stays branded dark even if a
+    /// previous session left `appearanceModeRaw == "light"` in
+    /// AppStorage — that protects the swipe transition from a
+    /// near-white LightBackground tearing through the branded intro.
+    /// After the first tap the lock lifts and Beat 2 mirrors the
+    /// user's live AppStorage choice so HELL/DUNKEL act as a real
+    /// preview, not a deferred preference.
+    @State private var themeUnlockedByUser: Bool = false
+
+    /// Mirrors `Beat2EinstellungenView`'s @AppStorage on the same
+    /// key — read-only here, used to compute `effectiveColorScheme`
+    /// after the user has unlocked the theme.
+    @AppStorage(OnboardingPreferences.appearanceModeKey)
+    private var appearanceModeRaw: String = OnboardingPreferences.defaultAppearanceMode.rawValue
+
     /// Precomputed taptic generator. `prepare()` warms up the hardware
     /// so the first impact fires with zero perceptible latency — without
     /// it, the first commit-thump has 80-200 ms of cold-start lag.
@@ -68,9 +84,24 @@ struct OnboardingFlow: View {
                     }
                     .frame(width: w)
 
-                    Beat2EinstellungenView(isActive: currentBeat == 1) {
-                        onComplete()
-                    }
+                    Beat2EinstellungenView(
+                        isActive: currentBeat == 1,
+                        onThemePicked: {
+                            // First tap on either Theme-Capsule unlocks
+                            // the colorScheme override so Beat 2's
+                            // ThemedOnboardingBackground + .primary
+                            // semantic colors start mirroring the user's
+                            // live AppStorage choice. We animate the
+                            // transition so the switch crossfades into
+                            // the new theme rather than snap-popping.
+                            withAnimation(.easeInOut(duration: 0.35)) {
+                                themeUnlockedByUser = true
+                            }
+                        },
+                        onComplete: {
+                            onComplete()
+                        }
+                    )
                     .frame(width: w)
                 }
                 .frame(width: w * 2, alignment: .leading)
@@ -79,17 +110,28 @@ struct OnboardingFlow: View {
             }
         }
         .ignoresSafeArea()
-        // Force the entire onboarding subtree to render in dark mode,
-        // regardless of the user's selected theme. The branded intro
-        // experience is always the Lokalo dark-blue gradient, and this
-        // locks Beat 2's `ThemedOnboardingBackground` (and all semantic
-        // colors like `.primary`) to the dark variant so the swipe
-        // transition from Beat 1 (hardcoded dark) never cuts through a
-        // near-white `LightBackground`. The user's theme choice from
-        // Beat 2's theme card still persists to AppStorage and takes
-        // effect the moment RootView appears after "Loslegen".
-        .environment(\.colorScheme, .dark)
+        // The onboarding starts branded dark even if a previous session
+        // left `appearanceModeRaw == "light"` in AppStorage — Beat 1 is
+        // hardcoded DarkBlueGradient + white text, and we don't want the
+        // Beat 1 → Beat 2 swipe to reveal a near-white LightBackground
+        // tearing through the branded intro before the user has even
+        // seen Beat 2. The lock lifts the moment the user actively taps
+        // a Theme-Capsule in Beat 2 (`themeUnlockedByUser`), so HELL /
+        // DUNKEL act as a live preview from that point on. The user's
+        // chosen mode persists to AppStorage either way and applies
+        // app-wide via `LokalApp.preferredColorScheme(...)` after
+        // "Loslegen".
+        .environment(\.colorScheme, effectiveColorScheme)
         .onAppear { commitHaptic.prepare() }
+    }
+
+    /// `.dark` until the user taps a Theme-Capsule in Beat 2; after
+    /// that, mirrors the AppStorage `appearanceModeRaw` so Beat 2's
+    /// `ThemedOnboardingBackground` and `.primary` semantic colors
+    /// reflect the live choice.
+    private var effectiveColorScheme: ColorScheme {
+        guard themeUnlockedByUser else { return .dark }
+        return AppearanceMode(rawValue: appearanceModeRaw)?.colorScheme ?? .dark
     }
 
     // MARK: - Layers
