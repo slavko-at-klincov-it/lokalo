@@ -79,6 +79,16 @@ struct OnboardingFlow: View {
             }
         }
         .ignoresSafeArea()
+        // Force the entire onboarding subtree to render in dark mode,
+        // regardless of the user's selected theme. The branded intro
+        // experience is always the Lokalo dark-blue gradient, and this
+        // locks Beat 2's `ThemedOnboardingBackground` (and all semantic
+        // colors like `.primary`) to the dark variant so the swipe
+        // transition from Beat 1 (hardcoded dark) never cuts through a
+        // near-white `LightBackground`. The user's theme choice from
+        // Beat 2's theme card still persists to AppStorage and takes
+        // effect the moment RootView appears after "Loslegen".
+        .environment(\.colorScheme, .dark)
         .onAppear { commitHaptic.prepare() }
     }
 

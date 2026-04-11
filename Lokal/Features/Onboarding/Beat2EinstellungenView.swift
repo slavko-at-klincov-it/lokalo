@@ -393,21 +393,23 @@ struct Beat2EinstellungenView: View {
     // MARK: - Choreography
 
     /// Staggered card reveal, fired once when `isActive` first flips
-    /// true. Delays are absolute from t=0 (the moment of commit) —
-    /// the first element (header) appears ~0.3 s in, giving the
-    /// page-slide spring time to mostly settle before the cards
-    /// start fading in, so the two motions don't fight each other
-    /// visually.
+    /// true. Content starts fading in immediately on commit so the
+    /// user's first frame of Beat 2 already has the header visible,
+    /// not an empty dark rectangle waiting 300 ms for content. The
+    /// per-element `.animation(.easeOut(duration: 0.7))` modifiers
+    /// provide the visible fade, and the small step between cards
+    /// keeps the aesthetic stagger without extending the empty-screen
+    /// window.
     private func runChoreography() {
         guard !hasChoreographed else { return }
         hasChoreographed = true
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) { headerVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { micCardVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { notificationCardVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.95) { cellularCardVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.15) { modelCardVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.35) { themeCardVisible = true }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.85) { footerVisible = true }
+        headerVisible = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.06) { micCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.14) { notificationCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) { cellularCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.30) { modelCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.38) { themeCardVisible = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.48) { footerVisible = true }
     }
 }
 
