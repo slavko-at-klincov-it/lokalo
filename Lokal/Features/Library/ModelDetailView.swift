@@ -191,7 +191,7 @@ struct ModelDetailView: View {
             }
         } else {
             Button {
-                downloadManager.startDownload(for: entry)
+                requestDownload()
             } label: {
                 Label("Herunterladen · \(String(format: "%.2f GB", entry.sizeGB))",
                       systemImage: "arrow.down.circle.fill")

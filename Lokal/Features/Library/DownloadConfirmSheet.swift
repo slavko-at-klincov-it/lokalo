@@ -16,6 +16,13 @@ struct DownloadConfirmSheet: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedEvictionIDs: Set<String> = []
+    /// Surfaces the "Über Mobilfunk laden?" alert when the user is on
+    /// cellular and hasn't opted in. This sheet is the central choke
+    /// point for every storage-reviewed download (LibraryView and
+    /// ModelPickerSheet both present it), so the cellular guard lives
+    /// here as a single safety net rather than being duplicated at
+    /// every callsite.
+    @State private var showCellularConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -101,6 +108,14 @@ struct DownloadConfirmSheet: View {
         }
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
+        .alert("Über Mobilfunk laden?", isPresented: $showCellularConfirm) {
+            Button("Trotzdem laden") {
+                performDownload(force: true)
+            }
+            Button("Abbrechen", role: .cancel) { }
+        } message: {
+            Text("Du bist gerade im Mobilfunknetz. \(entry.displayName) ist \(String(format: "%.2f GB", entry.sizeGB)) groß — das kann dein Datenvolumen verbrauchen. In den Einstellungen kannst du Downloads über Mobilfunk dauerhaft erlauben.")
+        }
     }
 
     // MARK: - Helpers
@@ -131,11 +146,22 @@ struct DownloadConfirmSheet: View {
     }
 
     private func confirm() {
-        // Delete every selected eviction candidate first.
+        if downloadManager.cellularDownloadsBlocked {
+            showCellularConfirm = true
+            return
+        }
+        performDownload()
+    }
+
+    /// Executes the actual download once any cellular confirmation has
+    /// been resolved. `force == true` is passed when the user confirmed
+    /// "Trotzdem laden" in the cellular alert, so the DownloadManager
+    /// bypasses its own cellular check.
+    private func performDownload(force: Bool = false) {
         for id in selectedEvictionIDs {
             modelStore.remove(id)
         }
-        downloadManager.startDownload(for: entry)
+        downloadManager.startDownload(for: entry, force: force)
         dismiss()
     }
 
