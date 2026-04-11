@@ -297,8 +297,40 @@ final class ChatStore {
 
         do {
             let path = ModelStore.fileURL(for: target).path
-            // Use the session's sampling if available, else fall back.
-            var settings = self.settings
+
+            // Determine the sampling settings to use for this load.
+            //
+            // Two scenarios:
+            //
+            // A) Switching between existing chats (drawer tap). The active
+            //    session's `chatModelID` already equals `target.id`, so we
+            //    reuse whatever is baked into that session (set at creation
+            //    time, possibly tweaked by the user in ChatSettingsSheet).
+            //
+            // B) Picking a different model for the CURRENT chat (library
+            //    tap / "Aktivieren & Chatten" while a chat is already open).
+            //    The active session's `chatModelID` still points at the
+            //    previous model. Its `session.settings` were tuned for that
+            //    previous model (e.g. Llama's temp 0.6) — passing them to
+            //    the new engine would silently misconfigure it (Gemma at
+            //    temp 0.6 instead of its own 1.0). Re-run the same sampling
+            //    cascade `ChatSessionStore.create()` uses at session
+            //    creation, so the new model gets its author-recommended
+            //    defaults (or the preset's tuned values for purpose-based
+            //    chats like Code-Reviewer).
+            let modelChangedForActiveSession: Bool = {
+                guard let active = sessionStore.activeSession else { return false }
+                return active.chatModelID != target.id
+            }()
+            var settings: GenerationSettings
+            if modelChangedForActiveSession, let active = sessionStore.activeSession {
+                settings = ChatSessionStore.resolvedSamplingSettings(
+                    for: target.id,
+                    preset: active.systemPromptPreset
+                )
+            } else {
+                settings = self.settings
+            }
             settings.contextTokens = Int32(target.recommendedContextTokens)
             let targetID = target.id
 
@@ -343,9 +375,14 @@ final class ChatStore {
 
             // Sync the active session's chatModelID with the newly loaded
             // model so a user-initiated picker swap is reflected in the
-            // session.
+            // session. When the model actually changed (scenario B above),
+            // also persist the refreshed sampling cascade so a future read
+            // of `session.settings` matches what the engine is currently
+            // running — otherwise ChatSettingsSheet would show stale values
+            // from the previous model.
             if var active = sessionStore.activeSession, active.chatModelID != target.id {
                 active.chatModelID = target.id
+                active.settings = settings
                 sessionStore.updateMeta(active)
             }
         } catch {

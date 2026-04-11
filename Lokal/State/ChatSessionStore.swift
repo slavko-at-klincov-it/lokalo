@@ -56,6 +56,30 @@ final class ChatSessionStore {
         }
     }
 
+    /// Cascade resolver used both at session creation and when the active
+    /// session's model changes mid-flight. Resolution order:
+    ///   1. Explicit caller settings (power-user / Create-Sheet)
+    ///   2. Preset's suggestion (e.g. Code-Reviewer 0.2 / Creative 0.95)
+    ///      — `lokaloDefault` returns `nil` here so the next layer wins.
+    ///   3. Model author's recommendation from `models.json`, populated by
+    ///      `tools/catalog/update_catalog.py` from HuggingFace.
+    ///   4. Hardcoded fallback (`GenerationSettings.default`).
+    ///
+    /// Callers that already have an explicit value pass it in; callers that
+    /// just need "the right defaults for this model+preset" pass `nil`.
+    static func resolvedSamplingSettings(
+        explicit: GenerationSettings? = nil,
+        for modelID: String,
+        preset: SystemPromptPreset
+    ) -> GenerationSettings {
+        if let explicit { return explicit }
+        if let presetSuggestion = preset.suggestedSettings { return presetSuggestion }
+        if let modelDefaults = ModelCatalog.entry(id: modelID)?.recommendedSamplingDefaults {
+            return modelDefaults
+        }
+        return .default
+    }
+
     /// Called once from `LokalApp.task` after `bootstrap()` if the manifest
     /// is empty — so the app always has at least one chat to show. The caller
     /// supplies the seed model ID (normally `modelStore.activeID` or the
@@ -66,13 +90,11 @@ final class ChatSessionStore {
                                    defaultSettings: GenerationSettings? = nil,
                                    defaultSystemPrompt: String? = nil) -> ChatSession? {
         guard sessions.isEmpty else { return nil }
-        // Same cascade as `create()` so the very first chat the user
-        // ever sees already runs on the model author's recommended
-        // sampling values, not on `GenerationSettings.default`.
-        let modelDefaults = ModelCatalog.entry(id: modelID)?.recommendedSamplingDefaults
-        let effectiveSettings = defaultSettings
-            ?? modelDefaults
-            ?? .default
+        let effectiveSettings = Self.resolvedSamplingSettings(
+            explicit: defaultSettings,
+            for: modelID,
+            preset: .lokaloDefault
+        )
         let seed = ChatSession(
             title: "",
             chatModelID: modelID,
@@ -98,18 +120,11 @@ final class ChatSessionStore {
                 settings: GenerationSettings? = nil,
                 systemPromptText: String? = nil,
                 title: String = "") -> ChatSession {
-        // Cascade for the initial sampling values:
-        //   1. Explicit caller settings (power-user / Create-Sheet)
-        //   2. Preset's suggestion (e.g. Code-Reviewer 0.2 / Creative 0.95)
-        //      — `lokaloDefault` returns `nil` here so the next layer wins.
-        //   3. Model author's recommendation from `models.json`, populated by
-        //      `tools/catalog/update_catalog.py` from HuggingFace.
-        //   4. Hardcoded fallback (`GenerationSettings.default`).
-        let modelDefaults = ModelCatalog.entry(id: modelID)?.recommendedSamplingDefaults
-        let effectiveSettings = settings
-            ?? preset.suggestedSettings
-            ?? modelDefaults
-            ?? .default
+        let effectiveSettings = Self.resolvedSamplingSettings(
+            explicit: settings,
+            for: modelID,
+            preset: preset
+        )
         let session = ChatSession(
             title: title,
             chatModelID: modelID,

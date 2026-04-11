@@ -96,26 +96,26 @@ final class ModelCatalogTests: XCTestCase {
         XCTAssertGreaterThan(manifest.maxEffectiveBillion, 0)
     }
 
-    func testQwen35IsPresent() throws {
+    func testQwen3IsPresent() throws {
         let entry = try XCTUnwrap(
-            ModelCatalog.entry(id: "qwen-3.5-0.8b-instruct-q4km"),
-            "Qwen 3.5 0.8B must exist in the bundled catalog"
+            ModelCatalog.entry(id: "qwen-3-0.6b-instruct-q4km"),
+            "Qwen 3 0.6B must exist in the bundled catalog"
         )
         XCTAssertEqual(entry.publisher, "Alibaba")
         XCTAssertEqual(entry.chatTemplate, .qwen3)
-        XCTAssertEqual(entry.sizeBytes, 556_982_432,
+        XCTAssertEqual(entry.sizeBytes, 484_220_320,
                        "Size must match the exact Content-Length from HF CDN")
     }
 
-    func testFourSmallestIncludeQwen35() {
+    func testFourSmallestIncludeQwen3() {
         // The onboarding picker shows the four smallest phone-compatible
-        // entries. Qwen 3.5 0.8B (557 MB) must be in that set.
+        // entries. Qwen 3 0.6B (~462 MB) must be in that set.
         let smallest4 = ModelCatalog.phoneCompatible
             .sorted { $0.sizeBytes < $1.sizeBytes }
             .prefix(4)
             .map(\.id)
-        XCTAssertTrue(smallest4.contains("qwen-3.5-0.8b-instruct-q4km"),
-                      "Qwen 3.5 0.8B must be among the four smallest. Got: \(smallest4)")
+        XCTAssertTrue(smallest4.contains("qwen-3-0.6b-instruct-q4km"),
+                      "Qwen 3 0.6B must be among the four smallest. Got: \(smallest4)")
     }
 
     func testEveryEntryUsesAKnownChatTemplate() {
@@ -157,5 +157,81 @@ final class ModelStoreTests: XCTestCase {
         XCTAssertTrue(store.installedIDs.contains("tinyllama-1.1b-chat-q4km"))
         XCTAssertEqual(store.installedIDs.count, before + 1)
         XCTAssertNotNil(store.activeID)
+    }
+}
+
+// MARK: - Sampling cascade
+//
+// Guards the `ChatSessionStore.resolvedSamplingSettings` resolver that both
+// session creation and `ChatStore.performSwitch` use to pick sampling values
+// for a (modelID, preset) pair. Regressing this resolver means e.g. Gemma
+// silently runs at Llama's temperature after the user switches models — the
+// exact bug the model-load audit flagged.
+@MainActor
+final class SamplingCascadeTests: XCTestCase {
+
+    func testExplicitSettingsAlwaysWin() {
+        var explicit = GenerationSettings.default
+        explicit.temperature = 0.12
+        explicit.topP = 0.34
+        let resolved = ChatSessionStore.resolvedSamplingSettings(
+            explicit: explicit,
+            for: "llama-3.2-1b-instruct-q4km",
+            preset: .codeReviewer
+        )
+        XCTAssertEqual(resolved.temperature, 0.12,
+                       "Explicit caller settings must override preset + model defaults")
+        XCTAssertEqual(resolved.topP, 0.34)
+    }
+
+    func testPresetSuggestionWinsOverModelDefaults() {
+        // Code-Reviewer has a fixed temp 0.2 regardless of which model the
+        // chat targets, because that tuning is for the *use case*, not the
+        // model.
+        let resolved = ChatSessionStore.resolvedSamplingSettings(
+            for: "gemma-3-1b-it-q4km",
+            preset: .codeReviewer
+        )
+        XCTAssertEqual(resolved.temperature, 0.2,
+                       "Code-Reviewer preset must pin temperature to 0.2")
+        XCTAssertEqual(resolved.topP, 0.9)
+    }
+
+    func testLokaloDefaultFallsThroughToLlamaModelDefaults() {
+        // `.lokaloDefault.suggestedSettings` returns nil so the cascade
+        // must reach the model-author recommendations from models.json.
+        let resolved = ChatSessionStore.resolvedSamplingSettings(
+            for: "llama-3.2-1b-instruct-q4km",
+            preset: .lokaloDefault
+        )
+        let catalog = ModelCatalog.entry(id: "llama-3.2-1b-instruct-q4km")?.recommendedSamplingDefaults
+        XCTAssertEqual(resolved.temperature, catalog?.temperature,
+                       "Llama's recommended temperature must win for lokaloDefault preset")
+        XCTAssertEqual(resolved.topP, catalog?.topP)
+        XCTAssertEqual(resolved.topK, catalog?.topK)
+    }
+
+    func testLokaloDefaultFallsThroughToGemmaModelDefaults() {
+        // Separate model → different recommended values. Guards against a
+        // regression where the cascade returns the first/last entry or a
+        // cached default regardless of modelID.
+        let resolved = ChatSessionStore.resolvedSamplingSettings(
+            for: "gemma-3-1b-it-q4km",
+            preset: .lokaloDefault
+        )
+        let catalog = ModelCatalog.entry(id: "gemma-3-1b-it-q4km")?.recommendedSamplingDefaults
+        XCTAssertEqual(resolved.temperature, catalog?.temperature)
+        XCTAssertEqual(resolved.topP, catalog?.topP)
+        XCTAssertNotEqual(resolved.temperature, 0.6,
+                          "Gemma must not silently inherit Llama's temp 0.6")
+    }
+
+    func testUnknownModelFallsThroughToHardcodedDefault() {
+        let resolved = ChatSessionStore.resolvedSamplingSettings(
+            for: "this-model-id-does-not-exist",
+            preset: .lokaloDefault
+        )
+        XCTAssertEqual(resolved, GenerationSettings.default,
+                       "Unknown model with lokaloDefault preset must fall back to GenerationSettings.default")
     }
 }
