@@ -40,6 +40,11 @@ Frameworks/build-apple/
 .vscode/
 *.swp
 
+# Python tooling (tools/catalog/ uses a venv for update_catalog.py)
+.venv/
+venv/
+__pycache__/
+
 # Bundled embedding model — too large for git, fetched on demand
 Lokal/Resources/embeddinggemma-300M-qat-Q4_0.gguf
 
