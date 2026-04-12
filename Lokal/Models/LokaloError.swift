@@ -31,6 +31,7 @@ enum LokaloError: LocalizedError {
     case rag(String)
     case mcp(String)
     case oauth(String)
+    case speech(String)
     case unknown(String)
 
     var errorDescription: String? {
@@ -42,6 +43,7 @@ enum LokaloError: LocalizedError {
         case .rag(let m):       return "Wissensbasis: \(m)"
         case .mcp(let m):       return "MCP-Server: \(m)"
         case .oauth(let m):     return "Anmeldung fehlgeschlagen: \(m)"
+        case .speech(let m):    return "Spracheingabe: \(m)"
         case .unknown(let m):   return m
         }
     }

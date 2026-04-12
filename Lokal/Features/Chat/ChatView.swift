@@ -10,9 +10,12 @@ struct ChatView: View {
     @Environment(ChatStore.self) private var chatStore
     @Environment(ChatSessionStore.self) private var sessionStore
     @Environment(KnowledgeBaseStore.self) private var kbStore
+    @Environment(SpeechVocabularyService.self) private var speechVocabulary
     @Binding var path: NavigationPath
     @State private var input: String = ""
     @State private var showChatSettings = false
+    /// Set by SpeechMicButton when a dictation transcript is ready for learning.
+    @State private var speechOriginalTranscript: String?
     @State private var showModelPicker = false
     @State private var showKnowledge = false
     @State private var showChatDrawer = false
@@ -533,6 +536,14 @@ struct ChatView: View {
                 .submitLabel(.send)
                 .onSubmit { trySend() }
 
+            if #available(iOS 26, *) {
+                SpeechMicButton(
+                    input: $input,
+                    speechOriginalTranscript: $speechOriginalTranscript,
+                    vocabulary: speechVocabulary
+                )
+            }
+
             Button(action: chatStore.isStreaming ? stop : trySend) {
                 Image(systemName: chatStore.isStreaming ? "stop.fill" : "arrow.up")
                     .font(.system(size: 16, weight: .bold))
@@ -573,6 +584,14 @@ struct ChatView: View {
         guard sendEnabled else { return }
         let text = input
         input = ""
+
+        // If the text originated from dictation, learn any corrections
+        // the user made before sending.
+        if let original = speechOriginalTranscript {
+            speechVocabulary.learnCorrections(original: original, edited: text)
+            speechOriginalTranscript = nil
+        }
+
         chatStore.send(text)
         // Keyboard stays open — dismissing + re-showing it caused a
         // 250 ms layout animation (tab bar padding 0↔52 pt) that
@@ -691,6 +710,97 @@ struct ChatView: View {
     /// drawer. While unset, a small tooltip bubble appears next to the
     /// drawer button on launch to advertise the multi-chat feature.
     fileprivate static let multiChatHintSeenKey = "Lokal.multiChatHintSeen"
+}
+
+// MARK: - Speech Mic Button (iOS 26+)
+
+@available(iOS 26, *)
+private struct SpeechMicButton: View {
+    @Binding var input: String
+    @Binding var speechOriginalTranscript: String?
+    let vocabulary: SpeechVocabularyService
+
+    @State private var recorder: SpeechRecorder?
+    @State private var errorMessage: String?
+
+    /// Derived from recorder.state — no separate flag that can drift.
+    private var isRecording: Bool {
+        recorder?.state == .listening
+    }
+
+    private var isTransitioning: Bool {
+        guard let recorder else { return false }
+        return recorder.state == .starting || recorder.state == .stopping
+    }
+
+    var body: some View {
+        Button(action: toggleRecording) {
+            Group {
+                if isTransitioning {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: isRecording ? "stop.fill" : "mic")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(.white)
+                        .symbolEffect(.pulse, isActive: isRecording)
+                }
+            }
+            .frame(width: 38, height: 38)
+            .background(
+                Circle()
+                    .fill(isRecording ? Color.red : Color.gray.opacity(0.4))
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isTransitioning)
+        .accessibilityLabel(isRecording ? "Diktat stoppen" : "Diktat starten")
+        .onChange(of: recorder?.originalTranscript) { _, newValue in
+            // Continuously sync so learning works even if user sends without stopping.
+            if let transcript = newValue, !transcript.isEmpty {
+                speechOriginalTranscript = transcript
+            }
+        }
+        .alert("Spracheingabe", isPresented: showErrorBinding) {
+            Button("OK", role: .cancel) { errorMessage = nil }
+        } message: {
+            if let msg = errorMessage { Text(msg) }
+        }
+    }
+
+    private var showErrorBinding: Binding<Bool> {
+        Binding(
+            get: { errorMessage != nil },
+            set: { if !$0 { errorMessage = nil } }
+        )
+    }
+
+    private func toggleRecording() {
+        if isRecording {
+            stopRecording()
+        } else {
+            startRecording()
+        }
+    }
+
+    private func startRecording() {
+        let rec = SpeechRecorder(vocabulary: vocabulary)
+        recorder = rec
+        speechOriginalTranscript = nil
+        Task {
+            await rec.start(into: $input)
+            if let err = rec.error {
+                errorMessage = err
+            }
+        }
+    }
+
+    private func stopRecording() {
+        guard let recorder else { return }
+        Task {
+            await recorder.stop()
+        }
+    }
 }
 
 // Tiny helper so `topBarIconButton` can skip the `.accessibilityHint`

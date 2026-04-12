@@ -23,6 +23,7 @@ struct LokalApp: App {
     @State private var memoryPressureCoordinator: MemoryPressureCoordinator
     @State private var remoteCatalogService: RemoteCatalogService
     @State private var sourceWatcher: SourceWatcher
+    @State private var speechVocabulary: SpeechVocabularyService
 
     init() {
         let modelStore = ModelStore()
@@ -48,6 +49,7 @@ struct LokalApp: App {
         )
         let memoryPressureCoordinator = MemoryPressureCoordinator()
         let sourceWatcher = SourceWatcher()
+        let speechVocabulary = SpeechVocabularyService()
 
         _modelStore         = State(wrappedValue: modelStore)
         _kbStore            = State(wrappedValue: kbStore)
@@ -61,6 +63,7 @@ struct LokalApp: App {
         _memoryPressureCoordinator = State(wrappedValue: memoryPressureCoordinator)
         _remoteCatalogService = State(wrappedValue: remoteCatalogService)
         _sourceWatcher    = State(wrappedValue: sourceWatcher)
+        _speechVocabulary = State(wrappedValue: speechVocabulary)
     }
 
     /// First-launch flag — when false, the OnboardingFlow runs before the
@@ -139,6 +142,7 @@ struct LokalApp: App {
             .environment(mcpStore)
             .environment(memoryPressureCoordinator)
             .environment(remoteCatalogService)
+            .environment(speechVocabulary)
             .preferredColorScheme(currentAppearanceMode.colorScheme)
             .tint(.accentColor)
             .task {
@@ -163,6 +167,7 @@ struct LokalApp: App {
                 embeddingStore.cleanupLegacyDownloads()
                 connectionStore.bootstrap()
                 mcpStore.bootstrap()
+                speechVocabulary.bootstrap()
                 sessionStore.bootstrap()
                 // Invalidate all cached RAG stores when the embedding model changes.
                 embeddingStore.onActiveModelChanged = { [indexingService] in
