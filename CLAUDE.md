@@ -80,12 +80,17 @@ machine the key is at `/Users/slavkoklincov/Code/Build_AppStore/AuthKey_*.p8`.
 2. Optionally bumps `CFBundleVersion` if `--bump` is passed
 3. Runs `xcodegen generate`
 4. `xcodebuild archive` (Release / generic iOS)
-5. `xcodebuild -exportArchive -allowProvisioningUpdates` — uses Xcode's
-   cached Apple ID auth (from Xcode → Settings → Accounts) for
-   provisioning + upload. **Does not pass `-authenticationKey*`** because
-   this .p8 key's scope lacks "Cloud Managed Distribution Certificates"
-   and forcing the API-key path trips the cloud-signing block. Verified
-   end-to-end on 2026-04-11 with Build 7.
+5. `xcodebuild -exportArchive -allowProvisioningUpdates
+   -authenticationKeyPath … -authenticationKeyID … -authenticationKeyIssuerID …`
+   — authenticates via the `.p8` App Store Connect API key, bypassing
+   Xcode's cached Apple ID credentials in the macOS login keychain
+   entirely. This avoids the recurring "Failed to Use Accounts /
+   missing Xcode-Username" bug where Xcode loses its cached credentials
+   roughly every other run. An earlier version (commit `cb8c1d0`) had
+   switched to Xcode Apple ID auth because the `.p8` was tripping a
+   "Cloud Managed Distribution Certificates" scope block — that
+   restriction was lifted on Apple's side and the `.p8` path now works
+   end-to-end. Verified on 2026-04-11 with Build 9 (commit `dd199b7`).
 
 ### Prerequisites (one-time setup on this machine)
 
