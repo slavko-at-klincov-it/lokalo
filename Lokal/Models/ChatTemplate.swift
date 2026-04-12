@@ -15,6 +15,7 @@ struct ChatTemplate {
         case phi3
         case phi4
         case gemma
+        case gemma4
         case zephyr
     }
 
@@ -27,6 +28,7 @@ struct ChatTemplate {
         case .phi3:    return renderPhi3(system: system, messages: messages)
         case .phi4:    return renderPhi4(system: system, messages: messages)
         case .gemma:   return renderGemma(system: system, messages: messages)
+        case .gemma4:  return renderGemma4(system: system, messages: messages)
         case .zephyr:  return renderZephyr(system: system, messages: messages)
         }
     }
@@ -40,6 +42,7 @@ struct ChatTemplate {
         case .phi3:    return ["<|end|>", "<|endoftext|>"]
         case .phi4:    return ["<|end|>", "<|endoftext|>"]
         case .gemma:   return ["<end_of_turn>", "<eos>"]
+        case .gemma4:  return ["<turn|>", "<eos>"]
         case .zephyr:  return ["</s>"]
         }
     }
@@ -167,6 +170,29 @@ struct ChatTemplate {
             }
         }
         s += "<start_of_turn>model\n"
+        return s
+    }
+
+    /// Gemma 4 family. Uses `<|turn>role` / `<turn|>` framing (different
+    /// from Gemma 2/3's `<start_of_turn>` / `<end_of_turn>`). Gemma 4 has
+    /// native system-role support. We omit the `<|think|>` token to keep
+    /// the model in non-thinking mode for on-device chat.
+    private static func renderGemma4(system: String?, messages: [ChatMessage]) -> String {
+        var s = "<bos>"
+        if let system, !system.isEmpty {
+            s += "<|turn>system\n\(system)<turn|>\n"
+        }
+        for m in messages {
+            switch m.role {
+            case .user:
+                s += "<|turn>user\n\(m.content)<turn|>\n"
+            case .assistant:
+                s += "<|turn>model\n\(m.content)<turn|>\n"
+            case .system:
+                continue
+            }
+        }
+        s += "<|turn>model\n"
         return s
     }
 

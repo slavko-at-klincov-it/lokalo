@@ -39,20 +39,24 @@ if [ ! -d "${VENV_DIR}" ]; then
 fi
 source "${VENV_DIR}/bin/activate"
 
-# Generate the new catalog.
+# Discover new models on HuggingFace and add to watchlist.
+python "${SCRIPT_DIR}/discover_models.py"
+
+# Generate the new catalog (fetches sizes + sampling for all watchlist models).
 python "${SCRIPT_DIR}/update_catalog.py"
 
 # Sanity-check before commit.
 python "${SCRIPT_DIR}/validate_catalog.py"
 
-# Only commit if models.json actually changed.
-if git diff --quiet -- "${CATALOG_PATH}"; then
+# Only commit if something actually changed.
+WATCHLIST_PATH="${SCRIPT_DIR}/watchlist.json"
+if git diff --quiet -- "${CATALOG_PATH}" "${WATCHLIST_PATH}"; then
     echo "ℹ️  no changes to commit"
     exit 0
 fi
 
 echo "→ committing catalog refresh"
-git add "${CATALOG_PATH}"
+git add "${CATALOG_PATH}" "${WATCHLIST_PATH}"
 git commit -m "auto: catalog refresh $(date '+%Y-%m-%d')"
 
 echo "→ pushing to origin/main"

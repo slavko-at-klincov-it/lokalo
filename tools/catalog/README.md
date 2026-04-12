@@ -1,9 +1,9 @@
 # Lokalo Catalog Service
 
-Auto-updating catalog generator for Lokalo's `models.json`. Reads a hand-curated
-`watchlist.json`, fetches metadata + sampling defaults from HuggingFace, applies
-manual overrides for the few models that don't publish sampling values
-upstream, and writes the result to `Lokal/Resources/models.json`.
+Auto-updating catalog generator for Lokalo's `models.json`. Discovers new
+phone-compatible GGUF models on HuggingFace, fetches metadata + sampling
+defaults, applies manual overrides for the few models that don't publish
+sampling values upstream, and writes the result to `Lokal/Resources/models.json`.
 
 The Lokalo iOS app then picks up the updated file via the existing
 `RemoteCatalogService` (which polls
@@ -20,24 +20,30 @@ model is added doesn't scale.
 
 This service:
 
-1. Reads `watchlist.json` — the list of models we currently track
-2. Fetches each model's official `generation_config.json` from HuggingFace
+1. **Discovers** new models via `discover_models.py` — scans bartowski and
+   unsloth on HuggingFace for instruction-tuned GGUF models that are
+   ≤7B effective parameters, Q4_K_M quantized, and commercially licensed.
+   New models are auto-appended to `watchlist.json`.
+2. Reads `watchlist.json` — the full list of models we track (hand-curated
+   + auto-discovered)
+3. Fetches each model's official `generation_config.json` from HuggingFace
    (with `unsloth/...` mirror as a fallback for gated repos like Llama and
    Gemma)
-3. Falls back to `llama.cpp` defaults when the upstream config is missing
+4. Falls back to `llama.cpp` defaults when the upstream config is missing
    sampling fields entirely (Phi, SmolLM, TinyLlama)
-4. Applies entries from `overrides.json` on top — for the handful of cases
+5. Applies entries from `overrides.json` on top — for the handful of cases
    where the upstream value is wrong, missing, or doesn't fit Lokalo's chat
    UX (e.g. Microsoft recommends `temp=0.0` for Phi but Lokalo overrides for
    chat use)
-5. Builds a fresh `Lokal/Resources/models.json`, bumps its `version` field
+6. Builds a fresh `Lokal/Resources/models.json`, bumps its `version` field
    if anything actually changed, and (when run via `run.sh`) commits + pushes
 
 ## Files
 
 | File | Purpose |
 |---|---|
-| `watchlist.json` | The source of truth for which models are in the catalog. Hand-edited. |
+| `discover_models.py` | Auto-discovery: scans bartowski/unsloth for new phone-class GGUF models. |
+| `watchlist.json` | All tracked models (hand-curated + auto-discovered). |
 | `overrides.json` | Manual sampling-defaults overrides keyed by model id. Hand-edited. |
 | `fetch_metadata.py` | HuggingFace fetcher (generation_config + GGUF size HEAD request). |
 | `update_catalog.py` | Main script: reads watchlist + overrides, fetches HF, writes models.json. |
@@ -63,18 +69,28 @@ The script never throws on individual fetch failures — it logs a warning
 and skips that entry. A failed run leaves the existing `models.json`
 untouched, so a transient HF outage can never break the catalog.
 
-## Adding a new model
+## How new models get added
 
-1. Open `watchlist.json` and add a new entry with `id`, `displayName`,
-   `ggufRepo`, `ggufFile`, `originalRepo`, etc. (see existing entries for
-   the full schema).
-2. (Optional) If you want the model in the "suggested" list shown in the
-   onboarding picker, add `"featured": true`.
-3. (Optional) If HF doesn't publish sampling values for this model, add an
-   entry in `overrides.json` with the values you want.
-4. Run `python update_catalog.py` and inspect the diff in
-   `Lokal/Resources/models.json`.
-5. Commit + push. The Lokalo app picks it up on the next launch.
+**Automatic (daily cron):** `discover_models.py` scans bartowski and unsloth
+on HuggingFace for new instruction-tuned GGUF models. It filters for Q4_K_M
+quantization, ≤7B effective parameters, and commercial licenses. New models
+are auto-appended to `watchlist.json`, then `update_catalog.py` fetches their
+sizes and sampling defaults.
+
+**Manual:** Open `watchlist.json` and add a new entry with `id`, `displayName`,
+`ggufRepo`, `ggufFile`, `originalRepo`, etc. (see existing entries for the
+full schema).
+
+In both cases:
+1. (Optional) Add `"featured": true` for the onboarding picker.
+2. (Optional) Add an `overrides.json` entry if HF has no sampling values.
+3. Run `python update_catalog.py` and inspect the diff.
+4. Commit + push. The Lokalo app picks it up on the next launch.
+
+**Note:** Auto-discovered models require a matching `chatTemplate` case in
+`Lokal/Models/ChatTemplate.swift`. If a new model family uses an unknown
+template, the discovery script skips it and logs a warning. Add the template
+to the Swift enum + renderer, then re-run discovery.
 
 ## Cron / launchd setup (M4 Mini)
 
@@ -96,5 +112,7 @@ Requires:
   `slavko-at-klincov-it/lokalo` (`git remote -v` should show
   `git@github.com:...`, not `https://...`).
 - The repo cloned at `~/lokalo`.
-- A Python venv at `tools/catalog/.venv` with `requests` + `jsonschema`
-  installed.
+- A Python venv at `tools/catalog/.venv` with `requests` installed.
+
+**Important:** After loading the plist, verify the path matches your repo
+location. The plist currently expects `~/lokalo`.

@@ -15,7 +15,7 @@
     <array>
         <string>/bin/bash</string>
         <string>-lc</string>
-        <string>cd "$HOME/Code/OllamaAmIphone" &amp;&amp; ./tools/catalog/run.sh</string>
+        <string>cd "$HOME/lokalo" &amp;&amp; ./tools/catalog/run.sh</string>
     </array>
 
     <key>StartCalendarInterval</key>

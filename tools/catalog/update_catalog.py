@@ -86,6 +86,11 @@ def build_entry(model: dict, override: dict | None) -> dict | None:
         "recommendedContextTokens": model["recommendedContextTokens"],
         "recommendedSamplingDefaults": sampling,
     }
+    # For PLE / MoE models the effective active params differ from the
+    # total weight count.  When present in the watchlist, carry through
+    # so ModelEntry's phone-class filter uses the right number.
+    if "activeParametersBillion" in model:
+        entry["activeParametersBillion"] = model["activeParametersBillion"]
     # SHA-256 only carried through if the watchlist entry has it. We don't
     # auto-compute hashes here because that would require a full file
     # download per model on every cron run.
