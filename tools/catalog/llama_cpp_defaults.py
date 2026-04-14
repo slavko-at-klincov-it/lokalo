@@ -21,6 +21,5 @@ LLAMA_CPP_DEFAULTS = {
 # but always need to be present in a generated GenerationSettings record.
 LOKALO_DEFAULTS = {
     "maxNewTokens": 512,
-    "contextTokens": 4096,
     "seed": 0xFFFFFFFF,
 }

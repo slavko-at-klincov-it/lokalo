@@ -59,7 +59,10 @@ def build_entry(model: dict, override: dict | None) -> dict | None:
         return None
     print(f"   ✓ size: {size_bytes:_} bytes")
 
-    sampling = resolve_sampling_defaults(model, override)
+    sampling = resolve_sampling_defaults(
+        model, override,
+        recommended_context_tokens=model["recommendedContextTokens"],
+    )
     print(
         f"   ✓ sampling: temp={sampling.get('temperature')} "
         f"top_p={sampling.get('topP')} top_k={sampling.get('topK')} "

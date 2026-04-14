@@ -74,6 +74,7 @@ def main() -> int:
         fail("catalog has no entries")
 
     seen_ids: set[str] = set()
+    seen_tags: set[str] = set()
     for i, entry in enumerate(catalog["entries"]):
         prefix = f"entries[{i}]"
         missing = REQUIRED_ENTRY_KEYS - entry.keys()
@@ -92,6 +93,23 @@ def main() -> int:
         if entry["sizeBytes"] <= 0:
             fail(f"{prefix} ({entry_id}) sizeBytes is non-positive: {entry['sizeBytes']}")
 
+        # Cross-field context checks
+        max_ctx = entry["maxContextTokens"]
+        rec_ctx = entry["recommendedContextTokens"]
+        if max_ctx <= 0:
+            fail(f"{prefix} ({entry_id}) maxContextTokens is non-positive: {max_ctx}")
+        if rec_ctx <= 0:
+            fail(f"{prefix} ({entry_id}) recommendedContextTokens is non-positive: {rec_ctx}")
+        if rec_ctx > max_ctx:
+            fail(f"{prefix} ({entry_id}) recommendedContextTokens ({rec_ctx}) > maxContextTokens ({max_ctx})")
+
+        # Duplicate ollamaTag check
+        tag = entry.get("ollamaTag")
+        if tag is not None:
+            if tag in seen_tags:
+                fail(f"{prefix} ({entry_id}) duplicate ollamaTag: {tag!r}")
+            seen_tags.add(tag)
+
         if "recommendedSamplingDefaults" in entry:
             sampling = entry["recommendedSamplingDefaults"]
             if not isinstance(sampling, dict):
@@ -102,6 +120,11 @@ def main() -> int:
                     f"{prefix} ({entry_id}) recommendedSamplingDefaults missing keys: "
                     f"{sorted(sampling_missing)}"
                 )
+            samp_ctx = sampling.get("contextTokens", 0)
+            if samp_ctx > max_ctx:
+                fail(f"{prefix} ({entry_id}) sampling contextTokens ({samp_ctx}) > maxContextTokens ({max_ctx})")
+            if samp_ctx != rec_ctx:
+                fail(f"{prefix} ({entry_id}) sampling contextTokens ({samp_ctx}) != recommendedContextTokens ({rec_ctx})")
 
     print(f"✅ catalog valid — v{catalog['version']}, {len(catalog['entries'])} entries")
     return 0

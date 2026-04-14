@@ -24,6 +24,8 @@ from typing import Any
 
 import requests
 
+from fetch_metadata import fetch_gguf_context_length
+
 SCRIPT_DIR = Path(__file__).resolve().parent
 WATCHLIST_PATH = SCRIPT_DIR / "watchlist.json"
 
@@ -80,7 +82,7 @@ TEMPLATE_RULES: list[tuple[str, str]] = [
     ("gemma4",  "gemma4"),
     ("gemma",   "gemma"),   # Gemma 2/3 use <start_of_turn>/<end_of_turn>
     ("smollm",  "chatml"),
-    ("mistral", "chatml"),
+    ("mistral", "mistral"),
 ]
 
 # ── Org-to-publisher mapping ───────────────────────────────────────────
@@ -222,6 +224,19 @@ def fetch_config_json(repo: str, session: requests.Session) -> dict | None:
     return None
 
 
+def fetch_tokenizer_config(repo: str, session: requests.Session) -> dict | None:
+    """Fetch tokenizer_config.json from a repo."""
+    url = f"https://huggingface.co/{repo}/raw/main/tokenizer_config.json"
+    try:
+        _delay()
+        r = session.get(url, timeout=TIMEOUT)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return None
+
+
 # ── Metadata extraction ────────────────────────────────────────────────
 
 def get_parameter_count(
@@ -261,26 +276,77 @@ def get_parameter_count(
     return (round(total, 2), round(active, 2))
 
 
-def get_context_length(config: dict | None) -> int:
-    """Best-effort context-length detection from config.json."""
-    if not config:
-        return 4096
-
-    # Direct keys
+def _extract_context_from_config(config: dict) -> int | None:
+    """Extract context length from a config.json dict."""
     for key in ("max_position_embeddings", "max_seq_len", "n_positions",
                 "seq_length"):
         val = config.get(key)
         if isinstance(val, int) and val > 0:
             return val
-
     # Nested in text_config (multimodal models)
     tc = config.get("text_config") or {}
     for key in ("max_position_embeddings", "max_seq_len"):
         val = tc.get(key)
         if isinstance(val, int) and val > 0:
             return val
+    return None
 
-    return 4096
+
+def get_context_length(
+    base_repo: str,
+    gguf_repo: str,
+    config: dict | None,
+    session: requests.Session,
+) -> int | None:
+    """
+    Context-length detection with fallback chain:
+      1. config.json from original repo (already fetched, passed in)
+      2. tokenizer_config.json from original repo (model_max_length)
+      3. config.json from GGUF repo
+    Returns None when all sources fail.
+    """
+    # 1. config.json from original repo
+    if config:
+        val = _extract_context_from_config(config)
+        if val:
+            return val
+
+    # 2. tokenizer_config.json from original repo
+    tok_config = fetch_tokenizer_config(base_repo, session)
+    if tok_config:
+        mml = tok_config.get("model_max_length")
+        if isinstance(mml, int) and 0 < mml < 10_000_000:
+            return mml
+
+    # 3. config.json from GGUF repo
+    gguf_config = fetch_config_json(gguf_repo, session)
+    if gguf_config:
+        val = _extract_context_from_config(gguf_config)
+        if val:
+            return val
+
+    return None
+
+
+def get_context_length_with_gguf_fallback(
+    base_repo: str,
+    gguf_repo: str,
+    gguf_file: str,
+    config: dict | None,
+    session: requests.Session,
+) -> int | None:
+    """
+    Full context-length fallback chain including GGUF header parsing:
+      1-3. config.json / tokenizer_config.json (via get_context_length)
+      4. GGUF file header (range GET, first 256 KB)
+    """
+    val = get_context_length(base_repo, gguf_repo, config, session)
+    if val is not None:
+        return val
+
+    # 4. GGUF header as last resort
+    print(f"     ℹ️  trying GGUF header for context length…")
+    return fetch_gguf_context_length(gguf_repo, gguf_file, session)
 
 
 def get_license_tag(model_info: dict) -> str | None:
@@ -301,6 +367,76 @@ def detect_template(base_model: str) -> str | None:
     for pattern, family in TEMPLATE_RULES:
         if pattern in key:
             return family
+    return None
+
+
+# Jinja2 markers → expected Lokalo template family.
+JINJA2_MARKERS: list[tuple[str, str]] = [
+    ("<|im_start|>",        "chatml"),
+    ("<start_of_turn>",     "gemma"),
+    ("<|start_header_id|>", "llama3"),
+    ("[INST]",              "mistral"),
+    ("<|turn>",             "gemma4"),
+    ("<|system|>",          "phi3"),   # phi3 and phi4 share this marker
+]
+
+# Template families where the Jinja2 marker check is compatible
+# (phi3 marker also valid for phi4, chatml marker also valid for qwen3).
+COMPATIBLE_TEMPLATES: dict[str, set[str]] = {
+    "phi3": {"phi3", "phi4"},
+    "phi4": {"phi3", "phi4"},
+    "chatml": {"chatml", "qwen3"},
+    "qwen3": {"chatml", "qwen3"},
+}
+
+
+def validate_template_via_jinja2(
+    base_model: str,
+    name_template: str,
+    session: requests.Session,
+) -> bool:
+    """
+    Cross-check the name-based template guess against the Jinja2 chat
+    template in tokenizer_config.json.  Returns True if consistent or
+    if the Jinja2 template is unavailable.  Returns False on mismatch.
+    """
+    tok = fetch_tokenizer_config(base_model, session)
+    if not tok:
+        return True  # can't verify, trust the name match
+
+    jinja = tok.get("chat_template", "")
+    if isinstance(jinja, list):
+        # Some models have multiple templates; join them for marker search
+        jinja = " ".join(t.get("template", "") for t in jinja if isinstance(t, dict))
+    if not isinstance(jinja, str) or not jinja:
+        return True
+
+    for marker, marker_family in JINJA2_MARKERS:
+        if marker in jinja:
+            compatible = COMPATIBLE_TEMPLATES.get(name_template, {name_template})
+            if marker_family in compatible or name_template == marker_family:
+                return True
+            print(f"     ⚠️  template mismatch: name says '{name_template}' "
+                  f"but Jinja2 has '{marker}' (→ {marker_family})")
+            return False
+
+    # No known marker found — can't disprove, trust name match
+    return True
+
+
+def validate_ollama_tag(tag: str | None, session: requests.Session) -> str | None:
+    """HEAD-check an Ollama tag against the registry. Returns tag if valid, None if not."""
+    if not tag or ":" not in tag:
+        return tag
+    family, size = tag.split(":", 1)
+    url = f"https://registry.ollama.ai/v2/library/{family}/manifests/{size}"
+    try:
+        r = session.head(url, timeout=10)
+        if r.status_code == 200:
+            return tag
+        print(f"     ℹ️  ollamaTag '{tag}' not found in registry, setting to null")
+    except Exception:
+        pass  # network error — keep the tag rather than losing it
     return None
 
 
@@ -348,16 +484,23 @@ def make_id(base_model: str) -> str:
 def make_ollama_tag(base_model: str, active_b: float) -> str | None:
     """Best-effort Ollama tag.  Returns None when uncertain."""
     name = base_model.split("/")[-1].lower()
-    # e.g. "qwen3.5" prefix + size
     for family in ("qwen3.5", "qwen3", "qwen2.5", "gemma4", "gemma3",
                    "gemma2", "llama3.2", "llama3.1", "phi4", "phi3.5",
                    "smollm2", "smollm3"):
         if family.replace(".", "") in name.replace(".", "").replace("-", ""):
+            # MoE pattern: "26b-a4b" → use total params (e.g. "gemma4:26b")
+            moe = re.search(r"(\d+(?:\.\d+)?)b[\-_]a\d", name)
+            if moe:
+                total = float(moe.group(1))
+                size = f"{total:g}b"
+                return f"{family}:{size}"
+            # PLE pattern: "e4b" → use E-prefix directly (e.g. "gemma4:e4b")
+            ple = re.search(r"(?:^|[\-_])(e\d+(?:\.\d+)?)b", name)
+            if ple:
+                return f"{family}:{ple.group(1)}b"
+            # Dense model: use active_b
             size = f"{active_b}b" if active_b >= 1 else f"{int(active_b * 1000)}m"
-            tag_family = family.replace(".", "")
-            # Fix: ollama uses dots for versions, e.g. qwen3.5
-            tag_family = family
-            return f"{tag_family}:{size}"
+            return f"{family}:{size}"
     return None
 
 
@@ -441,13 +584,21 @@ def discover() -> list[dict]:
                 continue
             lic_label = COMMERCIAL_LICENSES[lic_tag]
 
-            # Chat template
+            # Chat template (name-based + Jinja2 cross-check)
             template = detect_template(base)
             if not template:
                 print(f"     ⚠️  unknown chat template — skipping")
                 continue
+            if not validate_template_via_jinja2(base, template, session):
+                print(f"     ⚠️  template mismatch — skipping")
+                continue
 
-            max_ctx = get_context_length(config)
+            max_ctx = get_context_length_with_gguf_fallback(
+                base, gguf_repo, q4km, config, session,
+            )
+            if max_ctx is None:
+                print(f"     ⚠️  cannot determine context length — skipping")
+                continue
             model_id = make_id(base)
             if model_id in existing_ids:
                 continue
@@ -460,7 +611,7 @@ def discover() -> list[dict]:
             entry: dict[str, Any] = {
                 "id": model_id,
                 "displayName": display,
-                "ollamaTag": make_ollama_tag(base, active_b),
+                "ollamaTag": validate_ollama_tag(make_ollama_tag(base, active_b), session),
                 "publisher": publisher,
                 "summary": summary,
                 "parametersBillion": total_b,

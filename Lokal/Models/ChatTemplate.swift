@@ -16,6 +16,7 @@ struct ChatTemplate {
         case phi4
         case gemma
         case gemma4
+        case mistral
         case zephyr
     }
 
@@ -29,6 +30,7 @@ struct ChatTemplate {
         case .phi4:    return renderPhi4(system: system, messages: messages)
         case .gemma:   return renderGemma(system: system, messages: messages)
         case .gemma4:  return renderGemma4(system: system, messages: messages)
+        case .mistral: return renderMistral(system: system, messages: messages)
         case .zephyr:  return renderZephyr(system: system, messages: messages)
         }
     }
@@ -43,6 +45,7 @@ struct ChatTemplate {
         case .phi4:    return ["<|end|>", "<|endoftext|>"]
         case .gemma:   return ["<end_of_turn>", "<eos>"]
         case .gemma4:  return ["<turn|>", "<eos>"]
+        case .mistral: return ["</s>"]
         case .zephyr:  return ["</s>"]
         }
     }
@@ -193,6 +196,26 @@ struct ChatTemplate {
             }
         }
         s += "<|turn>model\n"
+        return s
+    }
+
+    /// Mistral Instruct family (Ministral, Mistral v0.3+).
+    /// Uses `[INST]`/`[/INST]` framing with `[SYSTEM_PROMPT]` wrappers.
+    private static func renderMistral(system: String?, messages: [ChatMessage]) -> String {
+        var s = "<s>"
+        if let system, !system.isEmpty {
+            s += "[SYSTEM_PROMPT]\(system)[/SYSTEM_PROMPT]"
+        }
+        for m in messages {
+            switch m.role {
+            case .user:
+                s += "[INST]\(m.content)[/INST]"
+            case .assistant:
+                s += "\(m.content)</s>"
+            case .system:
+                continue
+            }
+        }
         return s
     }
 
