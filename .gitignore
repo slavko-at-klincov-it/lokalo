@@ -40,7 +40,7 @@ Frameworks/build-apple/
 .vscode/
 *.swp
 
-# Python tooling (tools/catalog/ uses a venv for update_catalog.py)
+# Python tooling
 .venv/
 venv/
 __pycache__/
