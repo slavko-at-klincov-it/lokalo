@@ -251,7 +251,7 @@
       "ggufRepo": "bartowski/mistralai_Ministral-3-3B-Instruct-2512-GGUF",
       "ggufFile": "mistralai_Ministral-3-3B-Instruct-2512-Q4_K_M.gguf",
       "originalRepo": "mistralai/Ministral-3-3B-Instruct-2512",
-      "chatTemplate": "chatml",
+      "chatTemplate": "mistral",
       "licenseLabel": "Apache 2.0",
       "maxContextTokens": 262144,
       "recommendedContextTokens": 4096,
@@ -260,7 +260,7 @@
     {
       "id": "gemma-4-26b-a4b-it-q4km",
       "displayName": "gemma 4 26B A4B",
-      "ollamaTag": "gemma4:4.0b",
+      "ollamaTag": "gemma4:26b",
       "publisher": "Google",
       "summary": "Google gemma 4 26B A4B. 256K Kontext, Apache 2.0-Lizenz.",
       "parametersBillion": 26.54,
@@ -277,7 +277,7 @@
     {
       "id": "gemma-4-e4b-it-q4km",
       "displayName": "gemma 4 E4B",
-      "ollamaTag": "gemma4:4.0b",
+      "ollamaTag": "gemma4:e4b",
       "publisher": "Google",
       "summary": "Google gemma 4 E4B. 128K Kontext, Apache 2.0-Lizenz.",
       "parametersBillion": 8.0,
