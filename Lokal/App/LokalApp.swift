@@ -83,6 +83,16 @@ struct LokalApp: App {
 
     @Environment(\.scenePhase) private var scenePhase
 
+    /// Set when the scene actually hits `.background`, consumed on the
+    /// next `.active` resume. SwiftUI fires `onChange` twice during
+    /// resume — once for `.background → .inactive`, then for
+    /// `.inactive → .active` — so a bare `oldPhase == .background`
+    /// check on the `.active` edge never matches. A brief Control
+    /// Center dip goes `.active → .inactive → .active` without
+    /// touching `.background`, so this flag keeps us from refetching
+    /// the catalog on those spurious transitions.
+    @State private var wasBackgrounded: Bool = false
+
     private var currentAppearanceMode: AppearanceMode {
         AppearanceMode(rawValue: appearanceModeRaw) ?? .dark
     }
@@ -221,20 +231,19 @@ struct LokalApp: App {
                 await chatStore.runAutoTestPromptIfPresent()
             }
             .onChange(of: scenePhase) { oldPhase, newPhase in
+                FileLog.write("scenePhase \(oldPhase) → \(newPhase)")
                 if newPhase == .active && oldPhase != .active {
                     indexingService.checkStaleSources()
                     indexingService.startPeriodicCloudSync()
                     if !allowBackgroundActivity {
                         Task { await chatStore.ensureEngineLoaded() }
                     }
-                    // Gate the catalog refresh on genuine resumes from
-                    // `.background` so a brief Control Center dip
-                    // (.active → .inactive → .active) doesn't fire off
-                    // a network request every time.
-                    if oldPhase == .background {
+                    if wasBackgrounded {
+                        wasBackgrounded = false
                         Task { await remoteCatalogService.refresh() }
                     }
                 } else if newPhase == .background {
+                    wasBackgrounded = true
                     indexingService.stopPeriodicCloudSync()
                     BackgroundIndexScheduler.scheduleNext()
                     if !allowBackgroundActivity {
