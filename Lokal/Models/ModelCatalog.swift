@@ -43,8 +43,26 @@ struct CatalogManifest: Codable, Sendable {
 }
 
 enum ModelCatalog {
-    /// Loaded once at first access. Reads cache, falls back to bundled.
-    static let manifest: CatalogManifest = loadManifest()
+    /// Loaded at first access. Reads cache, falls back to bundled.
+    /// Mutable so `reloadFromCache()` can swap in a fresh manifest after
+    /// `RemoteCatalogService` writes a newer version to disk — that way
+    /// new entries appear without a relaunch. Writes happen only on the
+    /// main actor (see `RemoteCatalogService.refresh`); reads are safe
+    /// everywhere because the stored `CatalogManifest` is `Sendable` and
+    /// the value is only ever *replaced*, never mutated in place.
+    nonisolated(unsafe) static private(set) var manifest: CatalogManifest = loadManifest()
+
+    /// Re-reads the on-disk cache and replaces `manifest` if the cache is
+    /// a newer version than what's loaded. Returns true if the manifest
+    /// was actually swapped so the caller can notify observers.
+    @MainActor
+    @discardableResult
+    static func reloadFromCache() -> Bool {
+        let fresh = loadManifest()
+        guard fresh.version > manifest.version else { return false }
+        manifest = fresh
+        return true
+    }
 
     static var all: [ModelEntry] { manifest.entries }
     static var suggested: [String] { manifest.suggested }

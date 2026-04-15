@@ -20,17 +20,42 @@ final class ModelStore {
     var activeID: String?
     /// Bytes free on the models volume; refreshed by `refreshDiskUsage()`.
     private(set) var freeDiskBytes: Int64 = 0
+    /// Bumped every time `ModelCatalog.manifest` is swapped at runtime.
+    /// The catalog-reading computed properties below touch this so the
+    /// `@Observable` machinery records a dependency — without it, a
+    /// live remote-catalog update wouldn't re-render views that read
+    /// `allCatalogModels`, `suggestedModels`, etc., because those
+    /// values come from a `static var` outside the observation graph.
+    private(set) var catalogGeneration: Int = 0
 
     var hasInstalledModels: Bool { !installedIDs.isEmpty }
-    var activeModel: ModelEntry? { activeID.flatMap { ModelCatalog.entry(id: $0) } }
+    var activeModel: ModelEntry? {
+        _ = catalogGeneration
+        return activeID.flatMap { ModelCatalog.entry(id: $0) }
+    }
     var installedModels: [ModelEntry] {
-        installedIDs.compactMap { ModelCatalog.entry(id: $0) }
+        _ = catalogGeneration
+        return installedIDs.compactMap { ModelCatalog.entry(id: $0) }
             .sorted { $0.displayName < $1.displayName }
     }
     var suggestedModels: [ModelEntry] {
-        ModelCatalog.suggestedEntries().filter { !installedIDs.contains($0.id) }
+        _ = catalogGeneration
+        return ModelCatalog.suggestedEntries().filter { !installedIDs.contains($0.id) }
     }
-    var allCatalogModels: [ModelEntry] { ModelCatalog.phoneCompatible }
+    var allCatalogModels: [ModelEntry] {
+        _ = catalogGeneration
+        return ModelCatalog.phoneCompatible
+    }
+
+    /// Called after `ModelCatalog.manifest` has been swapped for a newer
+    /// version. Bumps `catalogGeneration` so every view reading a
+    /// catalog-backed computed property re-renders, and re-scans the
+    /// models directory so newly-listed entries that happen to match a
+    /// file already on disk flip to installed.
+    func catalogDidReload() {
+        catalogGeneration &+= 1
+        Task { await bootstrap() }
+    }
 
     /// Sum of bytes occupied by every installed model file.
     var totalInstalledBytes: Int64 {

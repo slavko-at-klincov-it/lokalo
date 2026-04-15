@@ -32,6 +32,15 @@ final class RemoteCatalogService {
     private(set) var lastRefreshDate: Date?
     private(set) var lastRefreshOutcome: Outcome = .pending
 
+    /// Target for the catalog-reload notification after a successful
+    /// remote fetch. `ModelStore.catalogDidReload()` bumps an observable
+    /// generation counter so catalog-backed views re-render live.
+    private let modelStore: ModelStore
+
+    init(modelStore: ModelStore) {
+        self.modelStore = modelStore
+    }
+
     enum Outcome: Equatable {
         case pending
         case usedRemote(version: Int, entryCount: Int)
@@ -98,6 +107,14 @@ final class RemoteCatalogService {
             lastRefreshOutcome = .usedRemote(version: remote.version, entryCount: remote.entries.count)
             lastRefreshDate = Date()
             FileLog.write("RemoteCatalog: cached v\(remote.version) with \(remote.entries.count) entries")
+
+            // Swap the in-memory manifest and let ModelStore bump its
+            // observation generation so the running app shows the new
+            // entries without waiting for a relaunch.
+            if ModelCatalog.reloadFromCache() {
+                modelStore.catalogDidReload()
+                FileLog.write("RemoteCatalog: in-memory manifest reloaded")
+            }
         } catch {
             lastRefreshOutcome = .failed(message: error.localizedDescription)
             FileLog.write("RemoteCatalog: failed — \(error.localizedDescription)")

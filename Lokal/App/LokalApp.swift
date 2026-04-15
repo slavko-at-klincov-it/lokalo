@@ -31,7 +31,7 @@ struct LokalApp: App {
         let embeddingStore = EmbeddingModelStore()
         let connectionStore = ConnectionStore()
         let mcpStore = MCPStore()
-        let remoteCatalogService = RemoteCatalogService()
+        let remoteCatalogService = RemoteCatalogService(modelStore: modelStore)
         let sessionStore = ChatSessionStore()
 
         let downloadManager = DownloadManager(modelStore: modelStore)
@@ -213,11 +213,10 @@ struct LokalApp: App {
                 await downloadManager.resumePending()
                 await mcpStore.connectAllEnabled()
                 // Refresh the model catalog from the remote in the
-                // background. The new catalog only takes effect on the
-                // next app launch (ModelCatalog.manifest is loaded once
-                // synchronously and held for the process lifetime), but
-                // we still kick this off every launch so the cache stays
-                // close to head-of-main.
+                // background. A successful fetch swaps in the new
+                // manifest live and bumps `modelStore.catalogGeneration`
+                // so catalog-backed views re-render within the running
+                // process — no relaunch needed.
                 await remoteCatalogService.refresh()
                 await chatStore.runAutoTestPromptIfPresent()
             }
@@ -227,6 +226,13 @@ struct LokalApp: App {
                     indexingService.startPeriodicCloudSync()
                     if !allowBackgroundActivity {
                         Task { await chatStore.ensureEngineLoaded() }
+                    }
+                    // Gate the catalog refresh on genuine resumes from
+                    // `.background` so a brief Control Center dip
+                    // (.active → .inactive → .active) doesn't fire off
+                    // a network request every time.
+                    if oldPhase == .background {
+                        Task { await remoteCatalogService.refresh() }
                     }
                 } else if newPhase == .background {
                     indexingService.stopPeriodicCloudSync()
