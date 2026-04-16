@@ -2,14 +2,14 @@
 #
 # fetch-embedding-model.sh
 #
-# Downloads the EmbeddingGemma-300M Q4_0 GGUF into Lokal/Resources/ so
+# Downloads the EmbeddingGemma-300M Q4_0 GGUF into Lokalo/Resources/ so
 # Xcode bundles it with the app. Idempotent — safe to re-run.
 #
 
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-RESOURCES_DIR="${PROJECT_ROOT}/Lokal/Resources"
+RESOURCES_DIR="${PROJECT_ROOT}/Lokalo/Resources"
 TARGET="${RESOURCES_DIR}/embeddinggemma-300M-qat-Q4_0.gguf"
 URL="https://huggingface.co/ggml-org/embeddinggemma-300M-qat-q4_0-GGUF/resolve/main/embeddinggemma-300M-qat-Q4_0.gguf"
 

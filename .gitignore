@@ -33,7 +33,7 @@ Frameworks/build-apple/
 *.log
 
 # Generated Xcode project (uncomment to enforce xcodegen-only workflow)
-# Lokal.xcodeproj/
+# Lokalo.xcodeproj/
 
 # IDE
 .idea/
@@ -46,7 +46,7 @@ venv/
 __pycache__/
 
 # Bundled embedding model — too large for git, fetched on demand
-Lokal/Resources/embeddinggemma-300M-qat-Q4_0.gguf
+Lokalo/Resources/embeddinggemma-300M-qat-Q4_0.gguf
 
 # App Store Connect API credentials — never commit
 scripts/testflight-config.sh

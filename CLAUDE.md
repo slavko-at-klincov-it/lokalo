@@ -3,7 +3,7 @@
 Native iOS app that runs local LLMs on iPhone via llama.cpp + Apple Metal.
 GGUF model download from HuggingFace, on-device chat, RAG (USearch +
 embeddings), MCP tool calling, OAuth connectors (GitHub / Google Drive /
-OneDrive). Bundle: `com.slavkoklincov.lokal`. Team: `SMPDFBGL64`.
+OneDrive). Bundle: `it.klincov.lokalo`. Team: `SMPDFBGL64`.
 
 ## Build
 
@@ -15,13 +15,13 @@ OneDrive). Bundle: `com.slavkoklincov.lokal`. Team: `SMPDFBGL64`.
 xcodegen generate
 
 # 3. Open in Xcode (or build from CLI)
-open Lokal.xcodeproj
+open Lokalo.xcodeproj
 ```
 
 CLI build for the simulator:
 
 ```bash
-xcodebuild -project Lokal.xcodeproj -scheme Lokal \
+xcodebuild -project Lokalo.xcodeproj -scheme Lokalo \
   -destination "platform=iOS Simulator,id=AE352555-D75A-4906-8299-0A12E22FE56E" \
   -configuration Debug build
 ```
@@ -29,7 +29,7 @@ xcodebuild -project Lokal.xcodeproj -scheme Lokal \
 CLI test:
 
 ```bash
-xcodebuild -project Lokal.xcodeproj -scheme Lokal \
+xcodebuild -project Lokalo.xcodeproj -scheme Lokalo \
   -destination "platform=iOS Simulator,id=AE352555-D75A-4906-8299-0A12E22FE56E" \
   test
 ```
@@ -41,8 +41,8 @@ let `upload-to-testflight.sh --bump` do it, or edit `project.yml` manually
 and bump **both** keys (they must match):
 
 ```yaml
-CFBundleVersion: "3"            # under targets.Lokal.info.properties
-CURRENT_PROJECT_VERSION: "3"    # under targets.Lokal.settings.base
+CFBundleVersion: "3"            # under targets.Lokalo.info.properties
+CURRENT_PROJECT_VERSION: "3"    # under targets.Lokalo.settings.base
 ```
 
 Then `xcodegen generate` to regenerate the .xcodeproj.
@@ -113,33 +113,33 @@ machine the key is at `/Users/slavkoklincov/Code/Build_AppStore/AuthKey_*.p8`.
 
 ### Fallback (manual upload)
 
-If the script ever fails, the archive is at `build/Lokal.xcarchive`. Open
+If the script ever fails, the archive is at `build/Lokalo.xcarchive`. Open
 Xcode → Window → Organizer → Archives → "Distribute App" → "App Store
 Connect" → "Upload" → Automatic signing. This should only be needed if
 one of the prerequisites above is missing on a fresh machine.
 
 ## Project layout
 
-- `Lokal/` — main app (SwiftUI)
-- `Lokal/App/LokalApp.swift` — store graph constructed in `init()` (no `attach()`)
-- `Lokal/Engine/` — llama.cpp wrapper (LlamaEngine, sampling, file logging)
-- `Lokal/State/` — observable stores (ModelStore, DownloadManager, ChatStore, …)
-- `Lokal/Features/` — SwiftUI screens grouped by feature
-- `Lokal/RAG/` — USearch + chunk store + embedding pipeline
-- `Lokal/OAuth/` — GitHub / Google Drive / OneDrive PKCE flows
-- `Lokal/Models/LokaloError.swift` — German-language error wrapper
+- `Lokalo/` — main app (SwiftUI)
+- `Lokalo/App/LokaloApp.swift` — store graph constructed in `init()` (no `attach()`)
+- `Lokalo/Engine/` — llama.cpp wrapper (LlamaEngine, sampling, file logging)
+- `Lokalo/State/` — observable stores (ModelStore, DownloadManager, ChatStore, …)
+- `Lokalo/Features/` — SwiftUI screens grouped by feature
+- `Lokalo/RAG/` — USearch + chunk store + embedding pipeline
+- `Lokalo/OAuth/` — GitHub / Google Drive / OneDrive PKCE flows
+- `Lokalo/Models/LokaloError.swift` — German-language error wrapper
 - `Frameworks/llama.xcframework/` — gitignored, fetched on demand
-- `LokalTests/` — unit tests
-- `LokalUITests/` — UI tests
+- `LokaloTests/` — unit tests
+- `LokaloUITests/` — UI tests
 - `scripts/` — build & upload helpers
 - `onboarding-preview/` — standalone HTML mockups for the onboarding beats
 
 ## Conventions
 
 - All UI strings are German. Wrap errors via `Error.lokaloMessage` from
-  `Lokal/Models/LokaloError.swift` — never expose `error.localizedDescription`
+  `Lokalo/Models/LokaloError.swift` — never expose `error.localizedDescription`
   directly to the user
-- Stores are constructor-injected as `let` dependencies in `LokalApp.init()`,
+- Stores are constructor-injected as `let` dependencies in `LokaloApp.init()`,
   in dependency order. The old `attach()` pattern is gone — adding a store
   means extending the constructor, not chasing weak references
 - The `preferredFirstModelID` from onboarding routes the user directly to

@@ -6,7 +6,7 @@ Optional: connect your own GitHub / Google Drive / OneDrive folders or any
 HTTPS MCP server as a RAG source — those flow directly between the device and
 the provider, never through a Lokalo server (there isn't one).
 
-* **Bundle ID:** `com.slavkoklincov.lokal`
+* **Bundle ID:** `it.klincov.lokalo`
 * **Min iOS:** 17.0
 * **Inference engine:** [llama.cpp](https://github.com/ggml-org/llama.cpp) (Apple Metal)
 * **UI:** native SwiftUI
@@ -22,21 +22,21 @@ the provider, never through a Lokalo server (there isn't one).
 xcodegen generate
 
 # 3. Open & build
-open Lokal.xcodeproj
+open Lokalo.xcodeproj
 ```
 
 ## Project layout
 
 ```
-Lokal/                 SwiftUI app source
-├── App/               LokalApp.swift entry point
+Lokalo/                SwiftUI app source
+├── App/               LokaloApp.swift entry point
 ├── Engine/            LlamaEngine actor wrapping llama.cpp
 ├── Models/            ModelCatalog, ChatTemplate, ModelEntry, Message
 ├── State/             ModelStore, DownloadManager, ChatStore (@Observable)
 └── Features/          Chat, Library, Settings, Onboarding views
 
-LokalTests/            Unit tests (chat templates, catalog, real inference)
-LokalUITests/          XCUITest end-to-end UI flow
+LokaloTests/           Unit tests (chat templates, catalog, real inference)
+LokaloUITests/         XCUITest end-to-end UI flow
 Frameworks/            llama.xcframework lives here (gitignored, fetched)
 onboarding-preview/    Browser prototypes for first-launch animations
 scripts/               Helper scripts (fetch-llama-framework.sh)
@@ -47,7 +47,7 @@ AppStoreMetadata.md    German + English App Store Connect copy
 ## Running tests
 
 ```bash
-xcodebuild -project Lokal.xcodeproj -scheme Lokal \
+xcodebuild -project Lokalo.xcodeproj -scheme Lokalo \
   -destination "platform=iOS Simulator,name=iPhone 17 Pro" test
 ```
 
@@ -57,7 +57,7 @@ file is found in the simulator's `Documents/models` directory.
 ## Direct device install (no TestFlight)
 
 ```bash
-xcodebuild -project Lokal.xcodeproj -scheme Lokal \
+xcodebuild -project Lokalo.xcodeproj -scheme Lokalo \
   -destination "generic/platform=iOS" -configuration Release \
   -derivedDataPath build/dd build \
   CODE_SIGN_STYLE=Automatic DEVELOPMENT_TEAM=<TEAM_ID> \
@@ -65,7 +65,7 @@ xcodebuild -project Lokal.xcodeproj -scheme Lokal \
 
 DEVICE=$(xcrun devicectl list devices | grep iPhone | awk '{print $4}' | head -1)
 xcrun devicectl device install app --device "$DEVICE" \
-  build/dd/Build/Products/Release-iphoneos/Lokal.app
+  build/dd/Build/Products/Release-iphoneos/Lokalo.app
 ```
 
 ## License

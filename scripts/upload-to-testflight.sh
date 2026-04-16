@@ -35,7 +35,7 @@ set -euo pipefail
 PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONFIG="${PROJECT_ROOT}/scripts/testflight-config.sh"
 BUILD_DIR="${PROJECT_ROOT}/build"
-ARCHIVE_PATH="${BUILD_DIR}/Lokal.xcarchive"
+ARCHIVE_PATH="${BUILD_DIR}/Lokalo.xcarchive"
 EXPORT_OPTIONS="${BUILD_DIR}/ExportOptions.plist"
 
 if [ ! -f "${CONFIG}" ]; then
@@ -88,8 +88,8 @@ rm -rf "${BUILD_DIR}/export"
 
 echo "→ Archiving Release build (this takes a few minutes)…"
 xcodebuild \
-  -project Lokal.xcodeproj \
-  -scheme Lokal \
+  -project Lokalo.xcodeproj \
+  -scheme Lokalo \
   -configuration Release \
   -destination "generic/platform=iOS" \
   -archivePath "${ARCHIVE_PATH}" \
