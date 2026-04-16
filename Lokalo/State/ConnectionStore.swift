@@ -234,7 +234,7 @@ final class ConnectionStore {
                     branch: branch,
                     path: node.path
                 )
-                let local = destination.appendingPathComponent(node.path)
+                guard let local = safeLocalURL(node.path, inside: destination) else { continue }
                 try FileManager.default.createDirectory(
                     at: local.deletingLastPathComponent(),
                     withIntermediateDirectories: true
@@ -269,7 +269,7 @@ final class ConnectionStore {
                             fileID: f.id,
                             mimeType: f.mimeType
                         )
-                        let local = destination.appendingPathComponent(fileName)
+                        guard let local = safeLocalURL(fileName, inside: destination) else { continue }
                         try data.write(to: local)
                     } catch {
                         continue
@@ -295,13 +295,21 @@ final class ConnectionStore {
                 guard DocumentExtractor.canExtract(url: url) else { continue }
                 do {
                     let data = try await OneDriveOAuth.download(token: token, itemID: item.id)
-                    let local = destination.appendingPathComponent(item.name)
+                    guard let local = safeLocalURL(item.name, inside: destination) else { continue }
                     try data.write(to: local)
                 } catch {
                     continue
                 }
             }
         }
+    }
+
+    /// Returns a safe local URL inside `base` for a remote-supplied path,
+    /// or nil if the resolved path escapes the base directory.
+    private func safeLocalURL(_ remotePath: String, inside base: URL) -> URL? {
+        let local = base.appendingPathComponent(remotePath).standardizedFileURL
+        guard local.path.hasPrefix(base.standardizedFileURL.path) else { return nil }
+        return local
     }
 
     // MARK: - Persistence

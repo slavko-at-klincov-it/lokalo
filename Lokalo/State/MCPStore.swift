@@ -53,9 +53,39 @@ final class MCPStore {
         load()
     }
 
+    // MARK: - Endpoint validation
+
+    private static let blockedHosts: Set<String> = [
+        "localhost", "127.0.0.1", "::1", "0.0.0.0"
+    ]
+
+    private static func validateEndpoint(_ url: URL) throws {
+        guard url.scheme == "https" else {
+            throw LokaloError.mcp("Nur HTTPS-Endpunkte erlaubt.")
+        }
+        guard let host = url.host()?.lowercased() else {
+            throw LokaloError.mcp("Ungültige Server-Adresse.")
+        }
+        if blockedHosts.contains(host) {
+            throw LokaloError.mcp("Lokale Adressen sind nicht erlaubt.")
+        }
+        if host.hasPrefix("10.") ||
+           host.hasPrefix("192.168.") ||
+           host.hasPrefix("169.254.") {
+            throw LokaloError.mcp("Private Netzwerk-Adressen sind nicht erlaubt.")
+        }
+        if host.hasPrefix("172.") {
+            let parts = host.split(separator: ".")
+            if parts.count >= 2, let second = Int(parts[1]), (16...31).contains(second) {
+                throw LokaloError.mcp("Private Netzwerk-Adressen sind nicht erlaubt.")
+            }
+        }
+    }
+
     // MARK: - CRUD
 
-    func add(_ config: MCPServerConfig, bearerToken: String?) {
+    func add(_ config: MCPServerConfig, bearerToken: String?) throws {
+        try Self.validateEndpoint(config.endpoint)
         servers.append(config)
         if let token = bearerToken, !token.isEmpty {
             try? keychain.set(token, key: tokenKey(for: config.id))
@@ -63,7 +93,8 @@ final class MCPStore {
         persist()
     }
 
-    func update(_ config: MCPServerConfig, bearerToken: String?) {
+    func update(_ config: MCPServerConfig, bearerToken: String?) throws {
+        try Self.validateEndpoint(config.endpoint)
         guard let i = servers.firstIndex(where: { $0.id == config.id }) else { return }
         servers[i] = config
         if let token = bearerToken {
@@ -94,6 +125,13 @@ final class MCPStore {
     // MARK: - Connection lifecycle
 
     func connect(_ config: MCPServerConfig) async {
+        do {
+            try Self.validateEndpoint(config.endpoint)
+        } catch {
+            connectionStatus[config.id] = .error(error.lokaloMessage)
+            lastError[config.id] = error.lokaloMessage
+            return
+        }
         connectionStatus[config.id] = .connecting
         lastError[config.id] = nil
         let bearer = token(for: config.id)

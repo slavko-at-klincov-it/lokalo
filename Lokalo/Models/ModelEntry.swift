@@ -149,6 +149,11 @@ struct ModelEntry: Identifiable, Hashable, Codable, Sendable {
         self.estimatedRAMBytes = try c.decode(Int64.self, forKey: .estimatedRAMBytes)
         self.downloadURL = try c.decode(URL.self, forKey: .downloadURL)
         self.filename = try c.decode(String.self, forKey: .filename)
+        guard self.filename.wholeMatch(of: /^[a-zA-Z0-9][a-zA-Z0-9._-]*\.gguf$/) != nil else {
+            throw DecodingError.dataCorrupted(
+                .init(codingPath: c.codingPath, debugDescription: "Ungültiger Dateiname: \(self.filename)")
+            )
+        }
         self.chatTemplate = try c.decode(ChatTemplate.Family.self, forKey: .chatTemplate)
         // ModelLicense's own decoder reads a single string from the JSON
         // and runs it through `init(rawLabel:)`, so unknown labels fall

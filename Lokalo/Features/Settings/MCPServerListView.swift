@@ -134,6 +134,7 @@ struct AddMCPServerSheet: View {
     @State private var bearerToken: String = ""
     @State private var enabled: Bool = true
     @State private var requiresAuth: Bool = false
+    @State private var errorText: String?
 
     private let existing: MCPServerConfig?
 
@@ -164,6 +165,11 @@ struct AddMCPServerSheet: View {
                     }
                     .disabled(!isValid)
                     .frame(maxWidth: .infinity)
+                    if let errorText {
+                        Text(errorText)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
                 }
             }
             .navigationTitle(existing == nil ? "Neuer MCP-Server" : "Server bearbeiten")
@@ -187,27 +193,31 @@ struct AddMCPServerSheet: View {
 
     private var isValid: Bool {
         !name.trimmingCharacters(in: .whitespaces).isEmpty &&
-        URL(string: endpoint.trimmingCharacters(in: .whitespaces))?.scheme?.hasPrefix("http") == true
+        URL(string: endpoint.trimmingCharacters(in: .whitespaces))?.scheme == "https"
     }
 
     private func save() {
         guard let url = URL(string: endpoint.trimmingCharacters(in: .whitespaces)) else { return }
-        if let existing {
-            var updated = existing
-            updated.name = name
-            updated.endpoint = url
-            updated.enabled = enabled
-            updated.requiresAuth = requiresAuth
-            store.update(updated, bearerToken: requiresAuth ? bearerToken : "")
-        } else {
-            let cfg = MCPServerConfig(
-                name: name,
-                endpoint: url,
-                enabled: enabled,
-                requiresAuth: requiresAuth
-            )
-            store.add(cfg, bearerToken: requiresAuth ? bearerToken : nil)
+        do {
+            if let existing {
+                var updated = existing
+                updated.name = name
+                updated.endpoint = url
+                updated.enabled = enabled
+                updated.requiresAuth = requiresAuth
+                try store.update(updated, bearerToken: requiresAuth ? bearerToken : "")
+            } else {
+                let cfg = MCPServerConfig(
+                    name: name,
+                    endpoint: url,
+                    enabled: enabled,
+                    requiresAuth: requiresAuth
+                )
+                try store.add(cfg, bearerToken: requiresAuth ? bearerToken : nil)
+            }
+            dismiss()
+        } catch {
+            errorText = error.lokaloMessage
         }
-        dismiss()
     }
 }

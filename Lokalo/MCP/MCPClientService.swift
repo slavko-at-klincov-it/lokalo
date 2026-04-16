@@ -101,16 +101,28 @@ actor MCPClientService {
         guard let client = clients[serverID] else {
             throw ServiceError.notConnected
         }
-        let (content, isError) = try await client.callTool(name: name, arguments: arguments)
-        let textPieces: [String] = content.compactMap { piece -> String? in
-            if case .text(let text, _, _) = piece { return text }
-            return nil
+        let result: String = try await withThrowingTaskGroup(of: String.self) { group in
+            group.addTask {
+                let (content, isError) = try await client.callTool(name: name, arguments: arguments)
+                let textPieces: [String] = content.compactMap { piece -> String? in
+                    if case .text(let text, _, _) = piece { return text }
+                    return nil
+                }
+                let combined = textPieces.joined(separator: "\n")
+                if isError == true {
+                    throw ServiceError.toolFailed(combined.isEmpty ? "Unknown error" : combined)
+                }
+                return combined.isEmpty ? "(tool returned no content)" : combined
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(60))
+                throw ServiceError.toolFailed("Zeitüberschreitung (60 s)")
+            }
+            let value = try await group.next()!
+            group.cancelAll()
+            return value
         }
-        let combined = textPieces.joined(separator: "\n")
-        if isError == true {
-            throw ServiceError.toolFailed(combined.isEmpty ? "Unknown error" : combined)
-        }
-        return combined.isEmpty ? "(tool returned no content)" : combined
+        return result
     }
 }
 

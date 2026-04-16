@@ -137,7 +137,13 @@ enum OneDriveOAuth {
             let (data, _) = try await URLSession.shared.data(for: request)
             let page = try JSONDecoder().decode(ChildrenResponse.self, from: data)
             allItems.append(contentsOf: page.value)
-            nextURL = page.nextLink.flatMap { URL(string: $0) }
+            nextURL = page.nextLink.flatMap { link -> URL? in
+                guard let u = URL(string: link),
+                      u.scheme == "https",
+                      u.host()?.lowercased() == "graph.microsoft.com"
+                else { return nil }
+                return u
+            }
         }
         return allItems
     }

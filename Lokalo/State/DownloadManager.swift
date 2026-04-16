@@ -54,6 +54,8 @@ final class DownloadTask: Identifiable {
 @MainActor
 @Observable
 final class DownloadManager {
+    private static let allowedHosts: Set<String> = ["huggingface.co"]
+
     private(set) var tasks: [String: DownloadTask] = [:]
     /// Latest classification of the device's network path. Updated by an
     /// `NWPathMonitor` running on a background queue. Read by the UI to
@@ -161,6 +163,12 @@ final class DownloadManager {
     /// showing a confirmation, then re-call with `force: true`.
     @discardableResult
     func startDownload(for entry: ModelEntry, force: Bool = false) -> Bool {
+        guard let host = entry.downloadURL.host(),
+              Self.allowedHosts.contains(host) else {
+            print("blocked download: \(entry.downloadURL) — host not in allowlist")
+            return false
+        }
+
         if !force && cellularBlocks(entry) {
             return false
         }

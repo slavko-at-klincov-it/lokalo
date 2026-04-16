@@ -38,7 +38,9 @@ struct ConnectionsSettingsView: View {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Öffne diese Adresse im Browser:")
                             .font(.callout)
-                        if let url = URL(string: pending.verificationURL) {
+                        if let url = URL(string: pending.verificationURL),
+                           url.scheme == "https",
+                           url.host()?.lowercased() == "github.com" {
                             Link(pending.verificationURL, destination: url)
                                 .font(.callout.weight(.medium))
                         } else {
