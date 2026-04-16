@@ -52,7 +52,7 @@ targets:
         CFBundleDisplayName: Lokalo
         CFBundleName: Lokalo
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "12"
+        CFBundleVersion: "13"
         UILaunchScreen:
           UIColorName: ""
           UIImageRespectsSafeAreaInsets: true
@@ -93,7 +93,7 @@ targets:
         DEVELOPMENT_TEAM: SMPDFBGL64
         CODE_SIGN_STYLE: Automatic
         ENABLE_PREVIEWS: YES
-        CURRENT_PROJECT_VERSION: "12"
+        CURRENT_PROJECT_VERSION: "13"
         MARKETING_VERSION: "1.0"
         FRAMEWORK_SEARCH_PATHS:
           - $(PROJECT_DIR)/Frameworks
