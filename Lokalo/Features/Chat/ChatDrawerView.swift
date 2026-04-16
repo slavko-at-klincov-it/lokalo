@@ -48,11 +48,17 @@ struct ChatDrawerView: View {
                             .onTapGesture { selectSession(session) }
                             .swipeActions(edge: .leading, allowsFullSwipe: false) {
                                 Button {
-                                    duplicateAsTemplate(session)
+                                    duplicate(session)
                                 } label: {
-                                    Label("Vorlage", systemImage: "doc.on.doc")
+                                    Label("Duplizieren", systemImage: "plus.square.on.square")
                                 }
                                 .tint(.accentColor)
+                                Button {
+                                    startRename(session)
+                                } label: {
+                                    Label("Umbenennen", systemImage: "pencil")
+                                }
+                                .tint(.orange)
                             }
                             .swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                 Button(role: .destructive) {

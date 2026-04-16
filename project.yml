@@ -52,7 +52,7 @@ targets:
         CFBundleDisplayName: Lokalo
         CFBundleName: Lokalo
         CFBundleShortVersionString: "1.0"
-        CFBundleVersion: "11"
+        CFBundleVersion: "12"
         UILaunchScreen:
           UIColorName: ""
           UIImageRespectsSafeAreaInsets: true
@@ -78,15 +78,11 @@ targets:
           - CFBundleURLName: it.klincov.lokalo.oauth
             CFBundleURLSchemes:
               - it.klincov.lokalo
-    # Entitlements for increased memory limit are commented out for the
-    # initial TestFlight build because they require Apple to have approved
-    # the App ID for the capability. Re-enable in Xcode → Signing & Capabilities
-    # once the App ID exists in App Store Connect.
-    # entitlements:
-    #   path: Lokalo/Lokalo.entitlements
-    #   properties:
-    #     com.apple.developer.kernel.increased-memory-limit: true
-    #     com.apple.developer.kernel.extended-virtual-addressing: true
+    entitlements:
+      path: Lokalo/Lokalo.entitlements
+      properties:
+        com.apple.developer.kernel.increased-memory-limit: true
+        com.apple.developer.kernel.extended-virtual-addressing: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: it.klincov.lokalo
@@ -97,7 +93,7 @@ targets:
         DEVELOPMENT_TEAM: SMPDFBGL64
         CODE_SIGN_STYLE: Automatic
         ENABLE_PREVIEWS: YES
-        CURRENT_PROJECT_VERSION: "11"
+        CURRENT_PROJECT_VERSION: "12"
         MARKETING_VERSION: "1.0"
         FRAMEWORK_SEARCH_PATHS:
           - $(PROJECT_DIR)/Frameworks

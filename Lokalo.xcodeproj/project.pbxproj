@@ -182,6 +182,7 @@
 		7DF476AB1045FB867BEC7EA2 /* PKCE.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PKCE.swift; sourceTree = "<group>"; };
 		80786A97D28360478956D48F /* KnowledgeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeView.swift; sourceTree = "<group>"; };
 		83E7A492D734C5C9715D3A97 /* EmbeddingModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmbeddingModelStore.swift; sourceTree = "<group>"; };
+		8838777CC6F2DA2569F489C9 /* Lokalo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Lokalo.entitlements; sourceTree = "<group>"; };
 		8902A621791F5CB2FF098A93 /* OnboardingFirstRunTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingFirstRunTests.swift; sourceTree = "<group>"; };
 		8980A85552E0B9D2FCF1F68B /* embeddinggemma-300M-qat-Q4_0.gguf */ = {isa = PBXFileReference; path = "embeddinggemma-300M-qat-Q4_0.gguf"; sourceTree = "<group>"; };
 		8A8A79AAF0A89431CA84543F /* LokaloError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LokaloError.swift; sourceTree = "<group>"; };
@@ -220,7 +221,6 @@
 		D90793C414324AD54CD4EFB7 /* LlamaEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LlamaEngine.swift; sourceTree = "<group>"; };
 		DAA75C374DFDD2AB2EC776A4 /* OAuthTokenVault.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OAuthTokenVault.swift; sourceTree = "<group>"; };
 		DAA7DA681CD9FCE02FB856DC /* AddSourceSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddSourceSheet.swift; sourceTree = "<group>"; };
-		DC84F9839390F3C682AA4F84 /* Lokal.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Lokal.entitlements; sourceTree = "<group>"; };
 		DC9C2E9FEE96ED778C7BDAC2 /* KnowledgeBaseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KnowledgeBaseStore.swift; sourceTree = "<group>"; };
 		E040A81E05DB3D58BFDCB786 /* MCPClientService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MCPClientService.swift; sourceTree = "<group>"; };
 		E5E024CA5C97AE552F901119 /* ConnectionsSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionsSettingsView.swift; sourceTree = "<group>"; };
@@ -446,7 +446,7 @@
 				547411DE004678D72E1A7218 /* State */,
 				434D107670AA9976C021127B /* Assets.xcassets */,
 				F861D3EDE3552955235BC5B2 /* Info.plist */,
-				DC84F9839390F3C682AA4F84 /* Lokal.entitlements */,
+				8838777CC6F2DA2569F489C9 /* Lokalo.entitlements */,
 				6DE1AA8486249388D612C21B /* PrivacyInfo.xcprivacy */,
 			);
 			path = Lokalo;
@@ -790,9 +790,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Lokalo/Lokalo.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = SMPDFBGL64;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
@@ -964,9 +965,10 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = Lokalo/Lokalo.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 11;
+				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = SMPDFBGL64;
 				ENABLE_PREVIEWS = YES;
 				FRAMEWORK_SEARCH_PATHS = (
